@@ -8,4 +8,10 @@
     -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+        Lets NetworkMonitor observe connectivity so an offline screen clears itself when the
+        connection returns. A normal permission: granted at install, never prompted for.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
 </manifest>

@@ -79,12 +79,32 @@ class SessionPickerViewModel(application: Application) : AndroidViewModel(applic
     fun refresh() {
         _uiState.update { it.copy(cargando = true, error = false) }
         viewModelScope.launch {
+            reconciliarIdentidad()
             BukInRepository.listarInstancias(colaboradorId).fold(
                 onSuccess = { lista ->
                     _uiState.update { it.copy(cargando = false, instancias = lista) }
                 },
                 onFailure = { _uiState.update { it.copy(cargando = false, error = true) } },
             )
+        }
+    }
+
+    /**
+     * Re-issues the remembered name and stores whatever id comes back.
+     *
+     * `identificar_colaborador` is find-or-create on the normalized name, so this is a no-op
+     * that returns the same uuid — until the row it refers to is gone. Then it heals.
+     *
+     * That is not hypothetical: reseeding the database between demos leaves every installed
+     * phone holding an id that no longer exists, and the only symptom is a foreign key
+     * violation at the moment someone tries to check in. Costs one call on a screen that is
+     * already making one, and it happens before any write can fail.
+     */
+    private suspend fun reconciliarIdentidad() {
+        val prefs = IdentityPreferences(getApplication())
+        val actual = prefs.colaborador ?: return
+        BukInRepository.identificar(actual.nombre).onSuccess { fresco ->
+            if (fresco.id != actual.id) prefs.colaborador = fresco
         }
     }
 

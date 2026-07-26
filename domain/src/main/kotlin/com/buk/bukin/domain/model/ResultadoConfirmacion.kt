@@ -34,4 +34,14 @@ sealed interface ResultadoConfirmacion {
      * and retrying is the right move.
      */
     data object SinRed : ResultadoConfirmacion
+
+    /**
+     * The server was reached and refused the request for a reason that is not a verdict on
+     * the code — a constraint, a bad argument, a 500.
+     *
+     * Kept apart from [SinRed] because the two send a person to different places: one is
+     * "check your connection", the other is "this is not your fault, try again". Before this
+     * existed the exception simply escaped and killed the process.
+     */
+    data object ErrorServidor : ResultadoConfirmacion
 }

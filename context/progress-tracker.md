@@ -165,7 +165,7 @@ was observed on an emulator.
 | 6 | Direct table query with the anon key denied | **PASS.** All four tables `42501 permission denied`; ungranted helper denied too; granted RPC works |
 | 7 | Roster shows the arrival within seconds | **PASS.** Went 3→4 within 4 s with the screen untouched |
 | 8 | Manual registration writes `MANUAL` with `atestiguado_por_id` | **PASS.** `Diana Osorio / MANUAL`, witness recorded |
-| 9 | No network produces the offline state, not a crash | **PASS.** "Sin conexión" card rendered, process alive, no crash log, **no row written** |
+| 9 | No network produces the offline state, not a crash | **PASS.** "Sin conexión" card rendered, process alive, no crash log, **no row written**. Re-run after the fix below: card cleared itself when Wi-Fi returned, screen untouched, and the retry then wrote the row |
 
 **Every criterion was run. None is unmet, and none was downgraded.**
 
@@ -193,14 +193,28 @@ both directions, a forged code, a valid code from *another* instance, out-of-hou
 double-call idempotency pair, `WALK_IN` vs `PRE_INSCRITO`, manual registration, and
 find-or-create identity. This is the regression gate; run it before touching the RPCs.
 
-### Two bugs the device found
+### Four bugs the device found
 
-1. **`WALK_IN` was unreachable from the UI.** The session row offered "Inscribirme" before
+1. **Any server error crashed the app.** `BukInRepository` caught only `HttpRequestException`
+   and `IOException`, so a `PostgrestRestException` — which is what a constraint violation, a
+   bad argument, or a 500 arrives as — propagated out of `viewModelScope` and killed the
+   process. Observed as `FATAL EXCEPTION: main` on the phone from one foreign key violation.
+   The repository is a trust boundary and now lets nothing but `CancellationException`
+   escape. Transport failures map to `SinRed`, everything else to the new
+   `ResultadoConfirmacion.ErrorServidor`, because "sin conexión" on a phone that plainly has
+   a connection sends someone chasing a problem they do not have.
+2. **A phone holding a `colaborador_id` that no longer exists could never check in again.**
+   Reseeding the database orphans every installed phone, and the only symptom is a foreign
+   key violation at the moment of the write. The session list now re-issues the remembered
+   name through `identificar_colaborador` — find-or-create, so a no-op until it is a repair —
+   before it lists anything, and nav entries read the stored id fresh instead of reusing the
+   one captured when the nav graph was first composed.
+3. **`WALK_IN` was unreachable from the UI.** The session row offered "Inscribirme" before
    "Marcar asistencia", so a person had to enrol before they could mark — and every check-in
    came out `PRE_INSCRITO`. But someone who turns up to a session they never signed up for
    *is* the walk-in case. Reordered so an active session offers check-in regardless of
    enrolment; signing in ahead of time is what makes someone `PRE_INSCRITO`.
-2. **A host screen claimed another session's broadcast.** `HostSession` is process-global, so
+4. **A host screen claimed another session's broadcast.** `HostSession` is process-global, so
    opening instance 8 and then viewing instance 1 showed "La sala está abierta / Instancia:
    8" under instance 1's name. `HostViewModel` now treats a `Broadcasting` state for a
    different `instanciaId` as `Stopped`. The `ponytail:` note on `HostSession` already named
@@ -225,10 +239,36 @@ find-or-create identity. This is the regression gate; run it before touching the
 - **Range and crowd scale.** Unchanged from session 2, and unmeasurable with one phone.
 - **The offline test costs the debugger.** `adb` runs over the same Wi-Fi the test disables,
   so the phone cannot be observed while it is offline. The sequence was scripted on-device
-  (`svc wifi disable; input tap; svc wifi enable`) and the result read once the phone came
-  back. The state is a fact; the moment of transition was not watched.
+  (`svc wifi disable; input tap; svc wifi enable; input tap`) and the result read once the
+  phone came back. The end state is a fact; the moment of transition was not watched.
+- **`NET_CAPABILITY_VALIDATED` was not tested against a captive portal.** It is the right
+  signal for one — associated is not connected — but no portal was available to prove it.
 - **Concurrency at scale.** `UNIQUE (colaborador_id, instancia_id)` makes it safe by
   construction and 300 upserts contend for nothing, but no load test was run.
+
+### "Sin conexión" used to be a dead end
+
+Reported from the phone after the first pass: Wi-Fi came back, the internet came back, and
+the card stayed. Three separate defects met in one place.
+
+`CheckInState.Offline` was stored as a finished submission, and any finished submission
+outranked the radio forever. Its notice card was the one blocked state written without an
+action, so it also replaced the button with nothing to press. And `onCheckIn` guarded on
+"any submission in flight or finished", so even a restored button would have refused to fire.
+
+Fixed at the root rather than by adding a button:
+
+- `NetworkMonitor` in `:core:data` wraps `registerDefaultNetworkCallback`. "Sin conexión" is
+  a claim about the network, so it stops being true when the network returns —
+  `NET_CAPABILITY_VALIDATED`, not "Wi-Fi associated", because a captive portal is associated
+  and useless.
+- The in-flight guard narrowed to `Enviando`. A previous attempt that failed for want of
+  network must not block the retry the returning network makes possible.
+- The card kept a `Reintentar` action anyway. The platform only calls a network validated
+  once it has proved it, and nothing may be a dead end while it waits.
+
+Invariant 7 says every failure has a distinct, actionable message and no permanently
+disabled control. This state had been violating it since session 1's mockup.
 
 ## Limitations to state out loud in the presentation
 

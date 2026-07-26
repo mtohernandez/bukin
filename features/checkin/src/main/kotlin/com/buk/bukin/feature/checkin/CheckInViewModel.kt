@@ -9,6 +9,7 @@ import com.buk.bukin.ble.BleScanner
 import com.buk.bukin.ble.BleStatus
 import com.buk.bukin.ble.ScanEvent
 import com.buk.bukin.data.BukInRepository
+import com.buk.bukin.data.NetworkMonitor
 import com.buk.bukin.domain.crypto.RotatingCode
 import com.buk.bukin.domain.model.CheckInErrorReason
 import com.buk.bukin.domain.model.CheckInState
@@ -135,10 +136,20 @@ class CheckInViewModel(application: Application) : AndroidViewModel(application)
                 initialValue = CheckInState.Scanning,
             )
 
+    /** Whether the device can actually reach the internet, straight from the platform. */
+    private val online = NetworkMonitor.isOnline(application)
+
     val state: StateFlow<CheckInState> =
-        combine(radioState, submission, _instancia) { radio, enviado, instancia ->
+        combine(radioState, submission, _instancia, online) { radio, enviado, instancia, hayRed ->
             when {
-                // A finished submission is terminal and outranks the radio.
+                // "Sin conexión" is a claim about the network, so it stops being true the
+                // moment the network comes back. Leaving it up would strand someone on a
+                // card that says they need internet while they are holding a phone that
+                // has it — and the card is what replaces the button, so the screen would
+                // be a dead end with no way out but the back gesture.
+                enviado == CheckInState.Offline && hayRed -> radio
+
+                // Any other finished submission outranks the radio.
                 enviado != null -> enviado
                 // Signed in but the hour has not come. The radio is irrelevant until then,
                 // and offering a button that cannot work is worse than saying so.
@@ -159,9 +170,13 @@ class CheckInViewModel(application: Application) : AndroidViewModel(application)
      * Postgres decides — a client asserting "the code was valid" is not authorization.
      */
     fun onCheckIn() {
-        // Setting Enviando first is the in-flight guard: a second tap sees a non-null
-        // submission and returns, so a double tap can never become two requests.
-        if (submission.value != null) return
+        // Setting Enviando first is the in-flight guard: a second tap sees Enviando and
+        // returns, so a double tap can never become two requests.
+        //
+        // Deliberately narrower than "any finished submission". A previous attempt that
+        // failed for want of network must not block the retry that the returning network
+        // makes possible.
+        if (submission.value == CheckInState.Enviando) return
         val sighting = latestSighting
 
         // Nothing heard, or heard too long ago. Anything older than one window is certain
@@ -197,6 +212,11 @@ class CheckInViewModel(application: Application) : AndroidViewModel(application)
 
                 // Nothing was decided. Distinct from a rejection on purpose.
                 ResultadoConfirmacion.SinRed -> CheckInState.Offline
+
+                // Reached the server and it refused. Not the user's fault and not their
+                // connection, so it says neither.
+                ResultadoConfirmacion.ErrorServidor ->
+                    CheckInState.Error(CheckInErrorReason.SAVE_FAILED)
             }
         }
     }

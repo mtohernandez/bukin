@@ -113,7 +113,9 @@
     <string name="error_scan_failed_action">Reintentar</string>
 
     <string name="error_save_failed_title">No alcanzamos a guardar tu asistencia</string>
-    <string name="error_save_failed_body">Tu conexión se cayó justo al enviar. Nada se perdió, solo hay que reintentar.</string>
+    <!-- Deliberately does not blame the connection: this state now covers a server that
+         answered and refused, which "se cayó tu conexión" would misdiagnose. -->
+    <string name="error_save_failed_body">Nada se perdió y no es culpa tuya. Vuelve a intentarlo.</string>
     <string name="error_save_failed_action">Reintentar</string>
 
     <!-- ===== Footer ===== -->

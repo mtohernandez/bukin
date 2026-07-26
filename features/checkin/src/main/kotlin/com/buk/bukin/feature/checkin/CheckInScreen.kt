@@ -196,11 +196,16 @@ fun CheckInScreen(
             ) {
                 when (current) {
                     CheckInState.Scanning -> ScanningCentre()
+                    // This state clears itself when connectivity returns, but the action
+                    // stays: the platform only calls a network validated once it has proved
+                    // it, and nothing on this screen may be a dead end while it waits.
                     CheckInState.Offline -> ScanningCentre(
                         notice = {
                             NoticeCard(
                                 title = stringResource(R.string.checkin_offline_title),
                                 body = stringResource(R.string.checkin_offline_body),
+                                actionLabel = stringResource(R.string.error_save_failed_action),
+                                onAction = onRecover,
                             )
                         },
                     )

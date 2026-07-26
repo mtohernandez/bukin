@@ -87,7 +87,12 @@ fun BukInNavDisplay(
             entry<BukInKey.CheckIn> { key ->
                 CheckInRoute(
                     instanciaId = key.instanciaId,
-                    colaboradorId = identidad?.id.orEmpty(),
+                    // Re-read on entry rather than reuse the value captured when the nav
+                    // display was first composed. The session picker reconciles the stored
+                    // id against the server before it lists anything, and a phone holding an
+                    // id that no longer exists — every phone, after the database is reseeded
+                    // — would otherwise carry the dead one all the way into the write.
+                    colaboradorId = rememberColaboradorId(),
                     // Check-in used to be a dead end. With a session list in front of it,
                     // getting back to pick another session has to be possible.
                     onBack = { backStack.removeLastOrNull() },
@@ -115,7 +120,7 @@ fun BukInNavDisplay(
             entry<BukInKey.ManualRegistration> { key ->
                 ManualRegistrationRoute(
                     instanciaId = key.instanciaId,
-                    hostId = identidad?.id.orEmpty(),
+                    hostId = rememberColaboradorId(),
                     onBack = { backStack.removeLastOrNull() },
                 )
             }
@@ -125,6 +130,13 @@ fun BukInNavDisplay(
             }
         },
     )
+}
+
+/** The stored collaborator id, read fresh each time an entry is composed. */
+@Composable
+private fun rememberColaboradorId(): String {
+    val context = LocalContext.current
+    return remember(context) { IdentityPreferences(context).colaborador?.id.orEmpty() }
 }
 
 private fun <T : NavKey> NavBackStack<T>.replaceAllWith(key: T) {

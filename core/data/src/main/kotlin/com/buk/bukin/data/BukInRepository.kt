@@ -177,13 +177,23 @@ object BukInRepository {
             try {
                 Result.success(block())
             } catch (e: CancellationException) {
+                // Rethrown, never swallowed: catching this would break structured
+                // concurrency and leave cancelled scopes running.
                 throw e
-            } catch (e: HttpRequestException) {
-                Result.failure(e)
-            } catch (e: IOException) {
+            } catch (e: Exception) {
+                // Everything else becomes a failed Result. This is a trust boundary, and
+                // nothing a server says may crash the app: a constraint violation, a
+                // malformed request, a 500, or an id this device remembers that no longer
+                // exists all arrive here as PostgrestRestException, not as an IOException.
+                // Narrowing this to transport failures cost one FATAL EXCEPTION on the
+                // phone — an unknown colaborador_id took the whole process down.
                 Result.failure(e)
             }
         }
+
+    /** True when the request never reached the server, as opposed to being refused by it. */
+    private fun Throwable.esFalloDeRed(): Boolean =
+        this is HttpRequestException || this is IOException
 
     /**
      * The two calls whose answer is a server verdict rather than data.
@@ -202,7 +212,16 @@ object BukInRepository {
                     else -> ResultadoConfirmacion.CodigoInvalido
                 }
             },
-            onFailure = { ResultadoConfirmacion.SinRed },
+            // A request that never arrived is not the same as one the server refused, and
+            // telling someone "sin conexión" while they hold a working phone sends them
+            // chasing a problem they do not have.
+            onFailure = {
+                if (it.esFalloDeRed()) {
+                    ResultadoConfirmacion.SinRed
+                } else {
+                    ResultadoConfirmacion.ErrorServidor
+                }
+            },
         )
 }
 
