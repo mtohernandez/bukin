@@ -34,6 +34,8 @@ rootProject.name = "BukIn"
 
 include(":app")
 include(":domain")
+include(":core:ble")
+include(":core:data")
 include(":core:designsystem")
 include(":features:onboarding")
 include(":features:checkin")

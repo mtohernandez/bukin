@@ -77,6 +77,7 @@ private val HelpStripTuck = 22.dp
 
 @Composable
 private fun TicketBody(instancia: Instancia, modifier: Modifier = Modifier) {
+    val zone = rememberZone()
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -90,7 +91,7 @@ private fun TicketBody(instancia: Instancia, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = instancia.curso,
+                text = instancia.cursoNombre,
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White,
                 modifier = Modifier.weight(1f, fill = false),
@@ -108,7 +109,7 @@ private fun TicketBody(instancia: Instancia, modifier: Modifier = Modifier) {
         ) {
             Column {
                 Text(
-                    text = instancia.fecha,
+                    text = InstanciaFormat.fecha(instancia.fechaInicio, zone),
                     style = MaterialTheme.typography.labelMedium,
                     color = BukOnBlueMuted,
                 )
@@ -117,7 +118,7 @@ private fun TicketBody(instancia: Instancia, modifier: Modifier = Modifier) {
                     ClockGlyph(tint = Color.White, modifier = Modifier.size(22.dp))
                     Spacer(Modifier.width(BukSpacing.sm))
                     Text(
-                        text = instancia.horaInicio,
+                        text = InstanciaFormat.hora(instancia.fechaInicio, zone),
                         style = MaterialTheme.typography.headlineMedium,
                         color = Color.White,
                     )
@@ -131,7 +132,7 @@ private fun TicketBody(instancia: Instancia, modifier: Modifier = Modifier) {
                 )
                 Spacer(Modifier.height(BukSpacing.xs))
                 Text(
-                    text = instancia.duracion,
+                    text = duracionLegible(instancia.duracionMinutos),
                     style = MaterialTheme.typography.headlineMedium,
                     color = Color.White,
                 )
@@ -168,8 +169,16 @@ private fun TicketBody(instancia: Instancia, modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(text = instancia.horaCheckIn, style = TicketStubTime, color = Color.White)
-            Text(text = instancia.horaSalida, style = TicketStubTime, color = Color.White)
+            Text(
+                text = InstanciaFormat.horaCheckIn(instancia.fechaInicio, zone),
+                style = TicketStubTime,
+                color = Color.White,
+            )
+            Text(
+                text = InstanciaFormat.hora(instancia.fechaFin, zone),
+                style = TicketStubTime,
+                color = Color.White,
+            )
         }
     }
 }
@@ -290,7 +299,7 @@ private fun TicketCardPreview() {
                 .background(MaterialTheme.colorScheme.background)
                 .padding(BukSpacing.gutter),
         ) {
-            TicketCard(instancia = rememberDemoInstancia())
+            TicketCard(instancia = previewInstancia())
         }
     }
 }

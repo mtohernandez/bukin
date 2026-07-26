@@ -77,8 +77,26 @@ before a dependency, one line before fifty.
 ```bash
 ./gradlew assembleDebug        # must pass before any unit of work is done
 ./gradlew installDebug         # deploy to the phone (over wireless adb — no cable exists)
-./gradlew testDebugUnitTest    # unit tests
+./gradlew test                 # unit tests — see the warning below
 ```
+
+**Do not use `./gradlew testDebugUnitTest`.** `:domain` is a `kotlin-jvm` module and has no
+such task, so the command reports `BUILD SUCCESSFUL` having run **nothing** — every Android
+module is `NO-SOURCE` and the rotating-code test never executes. `./gradlew test` is the
+gate that actually covers it. Session 2 found this the hard way; specs 02 and 03 both still
+name the broken command.
+
+The database is a separate gate and runs before any Kotlin:
+
+```bash
+export PGPASSWORD=<db password — never commit it>
+psql "postgresql://postgres.nfysenajrfquusawyotc@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require" \
+  -f supabase/tests/rpc_test.sql       # 19 cases, rolls back, leaves nothing behind
+supabase db push                        # migrations are append-only
+```
+
+The pooler host is `aws-1-us-west-2`, not `aws-0` and not `us-west-1` — both of those
+answer `ENOTFOUND tenant`. Direct `db.<ref>.supabase.co` is IPv6-only and unreachable here.
 
 The phone connects over Wi-Fi, not USB. Pair once, then reconnect whenever the port
 changes:

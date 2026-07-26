@@ -4,9 +4,14 @@ Update this file after every meaningful implementation change.
 
 ## Current phase
 
-**Session 1 complete.** The project builds, installs, and runs. Onboarding, the role
-picker, and all five collaborator states render and match the mockups. Nothing below the
-UI exists yet — no Bluetooth, no network.
+**Complete.** All three sessions delivered. A collaborator types their name, signs into a
+session, waits for its hour, and one tap puts a verified row in Postgres. The host names and
+opens a room, watches arrivals appear on a live roster, and can register someone by hand.
+Every table is unreachable with the key that ships in the APK.
+
+**Criterion 0 passed.** The Galaxy A54 decodes a macOS-originated 128-bit service UUID.
+There is no Apple overflow-area problem for a foreground macOS process, the Mac-as-beacon
+plan holds, and netsim was never needed.
 
 ## Roadmap
 
@@ -14,7 +19,7 @@ UI exists yet — no Bluetooth, no network.
 | ------- | --------------------------------- | ---------------------------------------------------- |
 | 1       | `specs/01-foundation.md`          | Project builds, theme matches mockups, onboarding runs |
 | 2       | `specs/02-ble-proximity.md`       | Mac beacons, phone detects the live code; flipped to verify the host path |
-| 3       | `specs/03-supabase-checkin.md`    | End-to-end check-in landing in Postgres              |
+| 3       | `specs/03-supabase-checkin.md`    | End-to-end check-in landing in Postgres. **Done** — results below |
 
 ## Hardware constraint change (2026-07-26)
 
@@ -43,11 +48,205 @@ That same constraint is what lets a Mac emit a byte-correct BukIn advertisement.
 architecture already sanctions it — "any device holding the instance key can advertise the
 same code."
 
-## Current goal
+## Session 2 results (2026-07-26)
 
-Execute `context/prompts/session-2.md` — `specs/02-ble-proximity.md`. The Mac beacons a
-rotating code and the phone detects it; then flip the radios to verify the Android host
-path. Criterion 0 — that Android can decode a macOS advertisement — gates everything.
+All hardware claims below are on the **Samsung Galaxy A54 5G (SM-A546E), Android 16 / API
+36, over wireless adb**, with the **M4 Mac** as the second radio. Nothing here was observed
+on an emulator.
+
+### Acceptance criteria
+
+| # | Criterion | Result |
+| --- | --- | --- |
+| 0 | Phone decodes a macOS advertisement | **PASS.** `42554b4e-0001-0002-0003-a1b2c3d4e5f6` at ~-55 dBm, several times a second |
+| 1 | Known-vector codec test passes | **PASS.** 22 tests, 0 failures — but see the `testDebugUnitTest` trap below |
+| 2 | Mac beacons → phone SCANNING→READY unaided | **PASS.** READY 2.6 s after the beacon started, no input |
+| 3 | Beacon stops → back to SCANNING | **PASS.** at 12.4 s (10 s grace + UI-dump latency) |
+| 4 | Flipped: phone advertises, Mac decodes | **PASS.** `instancia_id=42 code=e2d9fc66f227c1ba`, identical to the phone's own display |
+| 5 | Advertising survives screen lock | **PASS.** locked 13:27:29 (`mWakefulness=Dozing`), Mac still receiving at 13:28:09 |
+| 6 | Every preflight failure has its own Spanish message | **PASS.** all four observed on the phone |
+| 7 | No location permission requested | **PASS.** system package record lists only the three Bluetooth runtime permissions |
+| 8 | No `ADVERTISE_FAILED_DATA_TOO_LARGE` | **PASS.** no advertise failure of any kind in logcat |
+| 9 | No leaked scan callback | **PASS.** `LE scans (started/stopped): 9 / 9`, no ongoing scans after 5 in/out rounds |
+
+**Every criterion was run. None is unmet, and none was downgraded.**
+
+### The phone can advertise
+
+`isMultipleAdvertisementSupported = true` on the A54. This closes the open question from
+session 1: the Android host path is verifiable on this hardware, and criteria 4 and 5 above
+are what verified it.
+
+The platform's own advertising log shows restarts at exactly `13:17:30 → 13:18:00 →
+13:18:30`, each with a matching stop — boundary-aligned rotation, no leaked advertise
+callback. Scan config as specced:
+`ScanFilter[ServiceUuid=42554b4e-… ServiceUuidMask=ffffffff-…]`, `ScanMode=LOW_LATENCY`.
+Foreground service confirmed live with `types=0x00000010`
+(`FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE`).
+
+### `./gradlew testDebugUnitTest` does not run the codec test
+
+`:domain` is a `kotlin-jvm` module, so it has **no `testDebugUnitTest` task at all**. Every
+Android module reports `NO-SOURCE`, so the command exits `BUILD SUCCESSFUL` in under a
+second having executed nothing. The gate that actually covers the codec is:
+
+```bash
+./gradlew test          # runs :domain:test — 22 tests, 0 failures
+```
+
+`CLAUDE.md` and spec 02 both name `testDebugUnitTest`. Treat that as a documentation bug,
+not a passing gate — it is exactly the kind of green tick this project exists to distrust.
+
+### Two bugs the device found that a compile never would
+
+Both were invisible to `assembleDebug` and to unit tests, and both would have surfaced on
+demo day.
+
+1. **Recovery from any error state was stuck.** The scan branch only emitted on a
+   `ScanEvent`. In an empty room nothing is emitted, so the `StateFlow` kept its previous
+   value — switching Bluetooth back on looked like it did nothing, permanently. Fixed with
+   `onStart { emit(Scanning) }`: entering the scanning branch is itself the news, whether
+   or not anything has been heard yet.
+2. **A first-time host was sent to Settings instead of the permission dialog.**
+   `shouldShowRequestPermissionRationale` returns false both for "permanently denied" and
+   for "never asked", and the host screen tested it before ever requesting. Fixed by only
+   setting the flag inside the launcher result callback, which is what the check-in screen
+   already did correctly.
+
+### Verified NOT verifiable on this hardware — do not claim otherwise
+
+- **Android host → Android collaborator is never exercised.** Both radios are never Android
+  at once. Every host-path claim above rests on the Mac decoding the phone.
+- **Range and crowd-scale behaviour.** One phone, one room, ~-50 dBm across a desk. The
+  30–50 m figure and the 3–5 dB per-body attenuation remain unmeasured.
+- **Non-connectable advertising from the Mac.** `setConnectable(false)` is set on the
+  Android side and the packet is `ADV_NONCONN_IND` there, but CoreBluetooth cannot
+  reproduce it, so the Mac beacon is not a faithful stand-in for the scale argument.
+- **TX power and advertising interval.** CoreBluetooth exposes neither.
+
+## What session 3 must account for
+
+- **The instance key is generated on the host and never leaves it.** `HostViewModel` makes
+  16 bytes from `SecureRandom` on start and drops them on stop. Session 3 sends it **up**
+  via `abrir_instancia` and no endpoint ever returns it.
+- **`instanciaId` is hardcoded to 42** in `HostViewModel.DEMO_INSTANCIA_ID` so the phone,
+  `scan.swift`, and `RotatingCodeTest` all talk about the same instance. Replace with the
+  row id `abrir_instancia` returns.
+- **`clockOffsetSeconds` is plumbed through everywhere and is always 0.** `RotatingCode`,
+  `BleAdvertiser`, and `HostAdvertisingService` all take it. Session 3 fills it from server
+  time; it is a change of argument, not of signature.
+- **Submit `CheckInViewModel.latestSighting`, not the first sighting.** It is already kept
+  up to date for this reason.
+- **The SQL must reproduce the known vector.** Key `000102030405060708090a0b0c0d0e0f`,
+  instancia 42, counter 58000000 → `67e94bf8a08959ea`. Kotlin and Swift already agree;
+  `beacon.swift` and `scan.swift` self-check against it on every start.
+- **`CheckInErrorReason.HOST_NOT_FOUND` is currently unreachable.** Scanning never gives up,
+  it just stays on SCANNING. The state and its copy still exist from session 1.
+- **`POST_NOTIFICATIONS` is not requested.** If denied, the foreground-service notification
+  is suppressed but the service still runs and advertising continues — criterion 5 was
+  verified in that state.
+
+## Session 3 results (2026-07-26)
+
+Backend claims are against the **live Supabase project `nfysenajrfquusawyotc`** (Postgres
+17.6, pgcrypto 1.3). Device claims are on the **Samsung Galaxy A54 5G (SM-A546E), Android
+16 / API 36, over wireless adb**, with the **M4 Mac** as the co-host beacon. Nothing here
+was observed on an emulator.
+
+### Acceptance criteria
+
+| # | Criterion | Result |
+| --- | --- | --- |
+| 1 | SQL agrees with the Kotlin known vector | **PASS.** `extensions.hmac(int4send(42) \|\| int8send(58000000), key,'sha256')[1..8]` = `67e94bf8a08959ea`, identical to `RotatingCodeTest` and `BukInProtocol.swift` |
+| 2 | Mac beacons → phone SCANNING → READY → tap → SUCCESS, row with `metodo_confirmacion='BLE'` | **PASS.** Row written 19:20:06Z, `PRE_INSCRITO / BLE / asistencia=t` |
+| 3 | Two taps → one row, no error screen | **PASS.** Two taps 250 ms apart; SUCCESS shown, `count = 1` |
+| 4 | Unenrolled collaborator gets `origen='WALK_IN'` | **PASS.** Checked in without enrolling → `WALK_IN / BLE` |
+| 5 | Stale code rejected | **PASS.** Code captured 14:22:53 accepted (`OK`); the *same* code replayed 14:24:37 returned `CODIGO_INVALIDO` and wrote no row |
+| 6 | Direct table query with the anon key denied | **PASS.** All four tables `42501 permission denied`; ungranted helper denied too; granted RPC works |
+| 7 | Roster shows the arrival within seconds | **PASS.** Went 3→4 within 4 s with the screen untouched |
+| 8 | Manual registration writes `MANUAL` with `atestiguado_por_id` | **PASS.** `Diana Osorio / MANUAL`, witness recorded |
+| 9 | No network produces the offline state, not a crash | **PASS.** "Sin conexión" card rendered, process alive, no crash log, **no row written** |
+
+**Every criterion was run. None is unmet, and none was downgraded.**
+
+### The strongest single piece of evidence
+
+The fixed known vector proves the three implementations agree on one hardcoded input. Better
+than that: with the phone hosting a session it had just created, `instance_key` generated by
+`SecureRandom` on device and uploaded by `abrir_instancia`, the code **displayed on the
+phone** and the code **derived by Postgres from the stored key** were compared live:
+
+```
+phone displays  : d8175d428981562f
+postgres derives: d8175d428981562f
+```
+
+Same for the previous window (`fa94a92b69dee267`). Kotlin and pgcrypto agree on a random
+key neither of them was written against. The byte-serialization bug spec 03 called "the most
+likely bug in the session" cannot be hiding.
+
+### Server-side suite
+
+`supabase/tests/rpc_test.sql` — **19 cases, 0 failures**, run against the live project inside
+a transaction that rolls back. Covers the vector, ±1 window tolerance, two-window rejection
+both directions, a forged code, a valid code from *another* instance, out-of-hours, the
+double-call idempotency pair, `WALK_IN` vs `PRE_INSCRITO`, manual registration, and
+find-or-create identity. This is the regression gate; run it before touching the RPCs.
+
+### Two bugs the device found
+
+1. **`WALK_IN` was unreachable from the UI.** The session row offered "Inscribirme" before
+   "Marcar asistencia", so a person had to enrol before they could mark — and every check-in
+   came out `PRE_INSCRITO`. But someone who turns up to a session they never signed up for
+   *is* the walk-in case. Reordered so an active session offers check-in regardless of
+   enrolment; signing in ahead of time is what makes someone `PRE_INSCRITO`.
+2. **A host screen claimed another session's broadcast.** `HostSession` is process-global, so
+   opening instance 8 and then viewing instance 1 showed "La sala está abierta / Instancia:
+   8" under instance 1's name. `HostViewModel` now treats a `Broadcasting` state for a
+   different `instanciaId` as `Stopped`. The `ponytail:` note on `HostSession` already named
+   this ceiling; this is the cheap half of the fix, not the binder.
+
+### Deliberate deviations from spec 03
+
+| Deviation | Why |
+| --- | --- |
+| **The clock gates check-in, not `estado`** | Direct instruction: a collaborator signs into a session and waits for its hour, and availability must not depend on whether a host pressed a button. `abrir_instancia` still sets `ABIERTO` because it is the only path by which `instance_key` is stored, but `confirmar_asistencia` tests `ventana_activa`. Nothing is weakened — an instance with no key cannot produce a verifiable code anyway. |
+| **A typed name, not a list of names** | Spec 03 said pick yourself from a list. Showing one person the roster of their colleagues so they can tap whichever they like hands out the names and still proves nothing. Typing proves nothing either — that is the documented v1 cut — but it does not also leak. |
+| **Byte arguments are hex `text`, not `bytea`** | JSON has no byte type. PostgREST's bytea escaping is one more thing that can differ silently between the client and a psql test; hex is unambiguous on both sides and is the notation all three test vectors are already written in. |
+| **One `BukInRepository`** | Spec named `AsistenciaRepository` + `InstanciaRepository`. Nine RPCs are one PostgREST surface; splitting by table is delegation with no second consumer. |
+| **No `ConfirmarAsistencia` use case** | It would be a pass-through. The one real rule — never submit a sighting older than one window — is `RotatingCode.isFresh`, in `:domain`, with four JVM tests. |
+| **`NameEntryScreen` and `SessionPickerScreen` live in `:app`** | Both roles need the session list and features may never depend on features. Same rationale that already puts `RolePickerScreen` there. |
+
+### Verified NOT verifiable on this hardware — do not claim otherwise
+
+- **Android host → Android collaborator, end to end.** Still never exercised; both radios are
+  never Android at once. The host path is verified by the Mac decoding the phone (session 2)
+  and by Postgres deriving the phone's live code (above).
+- **Range and crowd scale.** Unchanged from session 2, and unmeasurable with one phone.
+- **The offline test costs the debugger.** `adb` runs over the same Wi-Fi the test disables,
+  so the phone cannot be observed while it is offline. The sequence was scripted on-device
+  (`svc wifi disable; input tap; svc wifi enable`) and the result read once the phone came
+  back. The state is a fact; the moment of transition was not watched.
+- **Concurrency at scale.** `UNIQUE (colaborador_id, instancia_id)` makes it safe by
+  construction and 300 upserts contend for nothing, but no load test was run.
+
+## Limitations to state out loud in the presentation
+
+Disclosed by you they read as rigour; discovered by a reviewer they read as gaps.
+
+1. **Not relay-proof, and no BLE scheme is.** Forwarding the live broadcast over the internet
+   to a confederate defeats proximity ([IEEE 8555557](https://ieeexplore.ieee.org/document/8555557/)).
+   Rotation kills screenshots, sharing, and replay — demonstrated live, criterion 5 — but not
+   a real-time relay. Mitigations available and not built: an RSSI floor (noisy, risky on demo
+   day). The one that *is* built is the host's roster as a human cross-check.
+2. **Identity is the bigger hole.** BLE proves *a phone* was in the room, never *whose*. With
+   a typed name and no authentication, anyone can type a colleague's name. This is sharper
+   than it was in the plan, where the name came from a list. Only authentication closes it,
+   and the RPC boundary is shaped so swapping the client-supplied `colaborador_id` for a JWT
+   claim is a one-argument change.
+3. **The Mac is a co-host, not an Android host.** The architecture explicitly allows any
+   device holding the key to advertise. It does not reproduce non-connectable advertising,
+   and it says nothing about range.
 
 ## Completed
 
@@ -69,29 +268,57 @@ path. Criterion 0 — that Android can decode a macOS advertisement — gates ev
   - Verified on device: `assembleDebug` and `installDebug` pass, every state screenshotted
     and compared against `docs/assets/`, onboarding confirmed to appear once.
 
+- **Session 3 — Supabase, real data, the closed loop.**
+  - `supabase/`: three append-only migrations, a seed, and `tests/rpc_test.sql` (19 cases).
+    Nine `SECURITY DEFINER` functions; deny-all RLS with no policies, table grants revoked
+    from `anon`, `EXECUTE` revoked from `PUBLIC` and granted back by name.
+  - `:core:data` — supabase-kt **3.6.0** (the release built against Kotlin 2.3.21; 3.7.0
+    pulls stdlib 2.4.0 and a 2.3.21 compiler reads that as newer metadata), Ktor 3.4.3,
+    OkHttp engine. One `BukInRepository`, DTOs private to the module, `INTERNET` declared
+    here and merged up the way `:core:ble` declares Bluetooth.
+  - Every hardcoded string gone: `rememberDemoInstancia` and the six `demo_*` strings are
+    deleted, `Instancia` carries real `Instant`s, and `TicketCard` formats them.
+  - Name entry, session picker (both roles, one screen), live roster, manual registration.
+    Nav keys carry their `instanciaId`; check-in is no longer a dead end.
+  - `clockOffsetSeconds` finally has a producer. `DEMO_INSTANCIA_ID = 42` is gone.
+
+- **Session 2 — the BLE proximity engine.**
+  - `RotatingCode` and `AdvertisementPayload` in `:domain`, pure Kotlin, 22 JVM tests
+    including the known vector that binds Kotlin, Swift, and session 3's SQL together.
+  - `:core:ble`: `BleCapability` (ordered preflight + adapter-state flow), `BleScanner`
+    (`callbackFlow`, hardware-offloaded prefix filter), `BleAdvertiser` (boundary-aligned
+    30 s rotation), `HostAdvertisingService` (`connectedDevice` foreground service).
+    Every Bluetooth permission is declared here and merges up.
+  - Check-in screen driven by the radio; the session-1 debug state switcher is gone.
+  - Host screen: open/close the room, live code, countdown, advertising status.
+  - Diagnostics screen behind a quiet affordance on the role picker.
+  - `tools/mac-ble/`: `BukInProtocol.swift` (shared), `beacon.swift`, `scan.swift`.
+
 ## In progress
 
 - None.
 
 ## Next up
 
-1. Session 2: `:core:ble`, advertiser and scanner, permission preflight, the rotating-code
-   codec in `:domain` with its JVM unit test.
-2. Check `isMultipleAdvertisementSupported()` on the phone. The Mac hosts by default, so
-   this decides only whether the Android host path can be verified at all.
-3. ~~Install on the phone over wireless adb.~~ **Done 2026-07-26.** Session 1 now verified
-   on the real device: Samsung Galaxy A54 5G (SM-A546E), Android 16 / API 36, paired and
-   connected over Wi-Fi. Onboarding, role picker, ticket card, and the scanning state all
-   render correctly; insets are clean and the status-bar icons are dark over the light
-   background, confirming the forced-light `enableEdgeToEdge` decision holds on a real
-   Samsung device. Session 1's one outstanding acceptance criterion is met.
-4. Build `tools/mac-ble/beacon.swift` and `scan.swift` — they are the test harness that
-   replaces the missing second phone, not optional extras.
+Nothing is required for the demo. If the work continues:
+
+1. **Design pass.** Session 3 was explicitly functionality-first. The session list, roster,
+   and manual-registration screens are plain Material and have had no design attention.
+2. **Check-out.** Still unsolved and still out of scope — see the open question below.
+3. **Auth.** The single change that closes the identity hole. One argument per RPC.
 
 ## Architecture decisions
 
 | Decision | Rationale |
 | --- | --- |
+| `AdvertisementPayload` lives in `:domain`, not `:core:ble` | Spec 02's file manifest put the class in `:core:ble` but its **test** in `domain/src/test/`, which cannot both be true. The payload is pure format over `java.util.UUID` — JVM stdlib, not Android — so putting it in `:domain` satisfies the test location, keeps `:domain` free of `android.*`, and makes the wire format unit-testable without a device. `:core:ble` wraps it in `ParcelUuid` at the one call site that needs to. |
+| `:core:ble` returns typed results and never a string | It would otherwise need `:core:designsystem` for `R.string`, coupling the radio to the theme. Feature modules map `BleStatus` to copy, which keeps the one-`strings.xml` rule intact. The foreground-service notification text is passed in as an Intent extra for the same reason. |
+| `BleAdvertiser` uses `flow` + `suspendCancellableCoroutine`, not `callbackFlow` | Each rotation window is one request/response against `AdvertiseCallback`, not a stream. `code-standards.md` asks for `callbackFlow` + `awaitClose`; the rule it protects — never leak a registration — is kept by the `finally`, in a third of the code. `BleScanner` is a genuine stream and does use `callbackFlow`. |
+| `SharingStarted.WhileSubscribed` instead of `DisposableEffect` for scan lifecycle | `collectAsStateWithLifecycle` unsubscribes at STOPPED, which cancels the `callbackFlow` and runs `awaitClose`. One operator covers "stop scanning off-screen" and "never leak a callback" — measured at `9 / 9` started/stopped on the phone. |
+| `HostSession` is a process-global `StateFlow` | The service is a singleton and there is one host session at a time. A binder plus a connection callback would be forty lines of ceremony around a value with one writer. Marked `ponytail:` in the source with the upgrade path. |
+| `ACTION_BLUETOOTH_SETTINGS`, not `ACTION_REQUEST_ENABLE` | The enable dialog requires `BLUETOOTH_CONNECT`, which a collaborator is never asked for. Sending them to the settings screen needs no permission and cannot dead-end. |
+| Grace period implemented with `transformLatest` | Each new sighting cancels the pending "host is gone" emission. The whole 10-second grace is one operator rather than a timer, a job handle, and a cancellation path. |
+| `RotatingCode.verify` exists although no client calls it | It is the reference the session-3 SQL must match, and it is what the known-vector test exercises. The collaborator holds no key and never validates — invariant 4 stands. |
 | Raw `BluetoothLeAdvertiser` / `BluetoothLeScanner`, not CWA | CWA implements no BLE of its own — it wraps the Exposure Notifications API, which was allowlist-gated to health authorities and removed from Play Services in Nov 2023. Nothing in it is reusable for proximity. |
 | Host advertises, collaborator scans. One-way, no GATT | Matches the mockups exactly and is achievable in the time available. GATT was needed only for the offline relay, which is cut. It also caps at ~7 concurrent connections on Android — unusable at classroom scale, let alone 300. |
 | Payload encoded in the 128-bit service UUID, not service data | iOS `CBPeripheralManager` accepts only local name and service UUIDs and errors on anything else — an iPhone cannot advertise service data at all. Encoding in the UUID costs nothing on Android and is what keeps an iOS host possible. |
@@ -141,13 +368,12 @@ path. Criterion 0 — that Android can decode a macOS advertisement — gates ev
   built: RSSI floor (noisy, risky on demo day), host roster cross-check (built).
 - **No authentication means `colaborador_id` is client-chosen** and therefore forgeable.
   Acceptable for a demo; the RPC boundary is shaped so the JWT swap is one argument.
-- **Whether the phone can advertise at all** is unknown until
-  `isMultipleAdvertisementSupported()` is checked on it. It no longer decides who hosts —
-  the Mac is the default beacon — but if it returns false, the Android host path cannot be
-  verified on this hardware at all, and that must be reported rather than glossed.
-- **Whether Android can decode a macOS advertisement** is the single unresolved
-  dependency of the whole BLE plan. Criterion 0 of spec 02. See the hardware constraint
-  change above.
+- ~~**Whether the phone can advertise at all.**~~ **Resolved 2026-07-26:**
+  `isMultipleAdvertisementSupported = true` on the A54, and the host path was verified end
+  to end by the Mac decoding the phone's broadcast.
+- ~~**Whether Android can decode a macOS advertisement.**~~ **Resolved 2026-07-26:** yes.
+  Criterion 0 passed on the phone; a foreground macOS process uses the standard AD
+  structure, not the overflow area. netsim was never needed and remains untried.
 - **Range, not capacity, is the ceiling at 300 people.** The radio and the database both
   handle that size without changes; a packed hall can exceed BLE's ~30–50 m indoor range
   once human bodies attenuate the signal. The fix is a co-host beacon advertising the

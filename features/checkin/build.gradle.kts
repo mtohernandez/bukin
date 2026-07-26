@@ -21,8 +21,11 @@ dependencies {
     implementation(composeBom)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
+    implementation(project(":core:ble"))
+    implementation(project(":core:data"))
     implementation(project(":core:designsystem"))
     implementation(project(":domain"))
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
 }

@@ -28,10 +28,40 @@
     <string name="role_host">Soy anfitrión</string>
     <string name="role_host_hint">Yo dicto el curso y abro la sala.</string>
 
-    <!-- Host mode arrives in session 2; the route exists so the fork is real today. -->
-    <string name="host_placeholder_title">Modo anfitrión</string>
-    <string name="host_placeholder_body">Aquí vas a abrir la sala y ver quién va llegando. Todavía lo estamos armando.</string>
-    <string name="host_placeholder_action">Volver</string>
+    <!-- ===== Host mode. An operator surface, so the copy is plainer than the rest. ===== -->
+    <string name="host_title">Modo anfitrión</string>
+    <string name="host_idle_body">Abre la sala para que tus colaboradores puedan marcar su asistencia.</string>
+    <string name="host_start">Abrir la sala</string>
+    <string name="host_stop">Cerrar la sala</string>
+    <string name="host_back">Volver</string>
+    <string name="host_starting">Encendiendo la señal…</string>
+    <string name="host_broadcasting">La sala está abierta</string>
+    <string name="host_code_label">Código actual</string>
+    <string name="host_instancia_label">Instancia</string>
+    <string name="host_window_label">Cambia en %1$d s</string>
+    <string name="host_keep_open">Puedes bloquear la pantalla: la señal sigue encendida.</string>
+
+    <string name="error_cannot_advertise_title">Este teléfono no puede abrir la sala</string>
+    <string name="error_cannot_advertise_body">Su Bluetooth solo puede escuchar, no transmitir. Usa otro teléfono como anfitrión o registra la asistencia a mano.</string>
+    <string name="error_advertise_failed_title">No pudimos encender la señal</string>
+    <string name="error_advertise_failed_body">Bluetooth rechazó la transmisión (código %1$d). Apágalo y enciéndelo, y vuelve a abrir la sala.</string>
+
+    <!-- Foreground-service notification while the host is broadcasting. -->
+    <string name="host_notification_title">BukIn — sala abierta</string>
+    <string name="host_notification_text">Tus colaboradores pueden marcar su asistencia.</string>
+
+    <!-- ===== Diagnostics. Debug surface; plain and dense on purpose. ===== -->
+    <string name="diag_title">Diagnóstico Bluetooth</string>
+    <string name="diag_open">Diagnóstico</string>
+    <string name="diag_adapter">Adaptador</string>
+    <string name="diag_enabled">Bluetooth encendido</string>
+    <string name="diag_can_advertise">Puede transmitir</string>
+    <string name="diag_permissions">Permisos</string>
+    <string name="diag_host_state">Estado del anfitrión</string>
+    <string name="diag_sightings">Señales detectadas</string>
+    <string name="diag_none_yet">Nada todavía.</string>
+    <string name="diag_yes">sí</string>
+    <string name="diag_no">no</string>
 
     <!-- ===== Ticket card ===== -->
     <string name="ticket_badge">Ticket</string>
@@ -64,6 +94,24 @@
     <string name="error_no_host_body">Acércate un poco más a la sala y volvemos a buscar.</string>
     <string name="error_no_host_action">Buscar de nuevo</string>
 
+    <!--
+        Named separately from "Bluetooth apagado" on purpose: one is a switch the person can
+        flip, the other is a phone that will never do this. Telling someone to turn on a
+        radio their device does not have is the kind of dead end this app exists to remove.
+    -->
+    <string name="error_no_bluetooth_title">Este teléfono no tiene Bluetooth</string>
+    <string name="error_no_bluetooth_body">Sin Bluetooth no podemos confirmar que estás en la sala. Pídele a tu anfitrión que te registre a mano.</string>
+
+    <string name="error_permission_title">Necesitamos permiso para buscar dispositivos</string>
+    <string name="error_permission_body">Solo lo usamos para encontrar a tu anfitrión en la sala. No accedemos a tu ubicación.</string>
+    <string name="error_permission_action">Dar permiso</string>
+    <!-- Shown once "no volver a preguntar" makes the dialog impossible to raise again. -->
+    <string name="error_permission_settings_action">Abrir ajustes</string>
+
+    <string name="error_scan_failed_title">No pudimos empezar a buscar</string>
+    <string name="error_scan_failed_body">El Bluetooth de tu teléfono rechazó la búsqueda. Apagarlo y encenderlo suele bastar.</string>
+    <string name="error_scan_failed_action">Reintentar</string>
+
     <string name="error_save_failed_title">No alcanzamos a guardar tu asistencia</string>
     <string name="error_save_failed_body">Tu conexión se cayó justo al enviar. Nada se perdió, solo hay que reintentar.</string>
     <string name="error_save_failed_action">Reintentar</string>
@@ -74,14 +122,75 @@
     <string name="footer_wordmark_suffix">·</string>
     <string name="footer_microcopy">Usamos tecnología de proximidad,\nno desactives tu bluetooth.</string>
 
-    <!-- ===== Debug-only state switcher (session 1: no Bluetooth to drive states) ===== -->
-    <string name="debug_next_state">Estado siguiente</string>
+    <!-- ===== Ticket duration, formatted from duracion_minutos ===== -->
+    <plurals name="ticket_duracion_horas">
+        <item quantity="one">%1$d hora</item>
+        <item quantity="other">%1$d horas</item>
+    </plurals>
+    <plurals name="ticket_duracion_minutos">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="other">%1$d minutos</item>
+    </plurals>
 
-    <!-- ===== Demo course. Session 3 replaces this with real rows from Supabase. ===== -->
-    <string name="demo_curso">Manejo de alimentos</string>
-    <string name="demo_fecha">Lunes, 13 de Julio</string>
-    <string name="demo_hora_inicio">10:00 AM</string>
-    <string name="demo_duracion">2 horas</string>
-    <string name="demo_hora_checkin">9:50 AM</string>
-    <string name="demo_hora_salida">12:00 PM</string>
+    <!-- ===== Name entry. The whole identity model in v1: you type who you are. ===== -->
+    <string name="nombre_title">¿Cómo te llamas?</string>
+    <string name="nombre_body">Usamos tu nombre para registrar tu asistencia. Nada más.</string>
+    <string name="nombre_label">Nombre y apellido</string>
+    <string name="nombre_continue">Continuar</string>
+    <string name="nombre_error">Escribe tu nombre para continuar.</string>
+
+    <!-- ===== Session list ===== -->
+    <string name="sesiones_title">Tus sesiones</string>
+    <string name="sesiones_title_host">Sesiones</string>
+    <string name="sesiones_empty">Todavía no hay sesiones programadas.</string>
+    <string name="sesiones_retry">Reintentar</string>
+    <string name="sesiones_error">No pudimos cargar las sesiones. Revisa tu conexión.</string>
+    <string name="sesiones_inscribirme">Inscribirme</string>
+    <string name="sesiones_marcar">Marcar asistencia</string>
+    <string name="sesiones_ya_marcaste">Ya marcaste tu asistencia</string>
+    <string name="sesiones_esperando">Se habilita a las %1$s</string>
+    <string name="sesiones_cerrada">Esta sesión ya terminó</string>
+    <string name="sesiones_inscrito">Estás inscrito</string>
+    <string name="sesiones_abrir">Abrir la sala</string>
+    <string name="sesiones_crear">Crear sesión</string>
+    <string name="sesiones_crear_title">Nueva sesión</string>
+    <string name="sesiones_crear_nombre">Nombre del curso</string>
+    <string name="sesiones_crear_duracion">Duración en minutos</string>
+    <string name="sesiones_crear_confirmar">Crear y abrir</string>
+    <string name="sesiones_cancelar">Cancelar</string>
+    <string name="sesiones_cambiar_nombre">No soy %1$s</string>
+
+    <!-- ===== Check-in, waiting for the hour ===== -->
+    <string name="checkin_esperando_title">Aún no es la hora</string>
+    <string name="checkin_esperando_body">Podrás marcar tu asistencia desde las %1$s. Deja el Bluetooth encendido y vuelve entonces.</string>
+    <string name="checkin_enviando">Registrando tu asistencia…</string>
+    <string name="error_code_rejected_title">Ese código ya no sirve</string>
+    <string name="error_code_rejected_body">La señal de tu anfitrión cambia cada 30 segundos. Volvemos a buscar la actual.</string>
+    <string name="error_code_rejected_action">Buscar de nuevo</string>
+    <string name="error_out_of_window_title">Esta sesión no está abierta</string>
+    <string name="error_out_of_window_body">Solo puedes marcar tu asistencia dentro del horario de la sesión.</string>
+    <string name="error_out_of_window_action">Volver</string>
+
+    <!-- ===== Host roster ===== -->
+    <string name="roster_title">Quién ha llegado</string>
+    <string name="roster_open">Ver asistencia</string>
+    <string name="roster_empty">Nadie ha marcado todavía.</string>
+    <string name="roster_pendiente">Sin marcar</string>
+    <string name="roster_metodo_ble">Bluetooth</string>
+    <string name="roster_metodo_manual">Registro manual</string>
+    <string name="roster_walk_in">Sin inscripción previa</string>
+    <string name="roster_count">%1$d de %2$d</string>
+
+    <!-- ===== Manual registration: the fallback for a dead or incompatible phone ===== -->
+    <string name="manual_title">Registrar a mano</string>
+    <string name="manual_open">Registrar a alguien</string>
+    <string name="manual_search">Buscar por nombre</string>
+    <string name="manual_register">Registrar</string>
+    <string name="manual_done">Registrado</string>
+    <string name="manual_empty">Nadie coincide con esa búsqueda.</string>
+
+    <!-- ===== Diagnostics additions ===== -->
+    <string name="diag_clock_offset">Desfase de reloj</string>
+    <string name="diag_clock_offset_value">%1$d s</string>
+    <string name="diag_clock_warning">El reloj de este teléfono está desfasado más de una ventana. Actívale la hora automática.</string>
 </resources>

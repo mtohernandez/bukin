@@ -46,6 +46,8 @@ dependencies {
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
 
+    implementation(project(":core:ble"))
+    implementation(project(":core:data"))
     implementation(project(":core:designsystem"))
     implementation(project(":domain"))
     implementation(project(":features:onboarding"))

@@ -6,6 +6,8 @@ import CoreBluetooth
 
 final class Probe: NSObject, CBPeripheralManagerDelegate {
     var manager: CBPeripheralManager!
+    // Set once advertising starts, so the watchdog below only fires on a real hang.
+    var advertising = false
     // BUKN | instancia_id | code — same 16-byte layout as the spec.
     let serviceUUID = CBUUID(string: "42554B4E-0001-0002-0003-A1B2C3D4E5F6")
 
@@ -36,17 +38,26 @@ final class Probe: NSObject, CBPeripheralManagerDelegate {
             print("ADVERTISE FAILED: \(error.localizedDescription)")
             exit(1)
         }
+        advertising = true
         print("ADVERTISE OK: \(serviceUUID.uuidString)")
         print("isAdvertising = \(peripheral.isAdvertising)")
-        exit(0)
+        // Deliberately does NOT exit: the radio stops the moment this process does, and
+        // criterion 0 needs the advertisement held up while the phone scans for it.
+        print("HOLDING — ctrl-C to stop")
     }
 }
+
+// stdout is fully buffered when it is not a terminal, and this process never exits — so
+// without this every line would sit in the buffer forever and the tool would look hung.
+setvbuf(stdout, nil, _IONBF, 0)
 
 let probe = Probe()
 probe.start()
 // Give CoreBluetooth a few seconds to answer, then fail loudly rather than hang.
 DispatchQueue.global().asyncAfter(deadline: .now() + 10) {
-    print("TIMEOUT: no delegate callback within 10s")
-    exit(4)
+    if !probe.advertising {
+        print("TIMEOUT: no delegate callback within 10s")
+        exit(4)
+    }
 }
 RunLoop.main.run()

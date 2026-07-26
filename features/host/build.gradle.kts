@@ -1,5 +1,4 @@
-// Placeholder. Session 2 fills this in with session control, the live roster, and
-// manual registration. Empty on purpose — nothing here yet.
+// Session control, the live roster, and manual registration.
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.compose.compiler)
@@ -21,5 +20,13 @@ kotlin { jvmToolchain(17) }
 dependencies {
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+
+    implementation(project(":core:ble"))
+    implementation(project(":core:data"))
     implementation(project(":core:designsystem"))
+    implementation(project(":domain"))
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 }

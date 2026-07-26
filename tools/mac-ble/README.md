@@ -21,24 +21,56 @@ ADVERTISE OK: 42554B4E-0001-0002-0003-A1B2C3D4E5F6
 isAdvertising = true
 ```
 
-It exits as soon as advertising starts, so it is useless for an actual scan test — it
-stops transmitting on exit. To hold the advertisement up while scanning from the phone,
-delete the `exit(0)` in `peripheralManagerDidStartAdvertising` and let the run loop
-continue.
+It now holds the advertisement up instead of exiting the moment it starts, because the
+radio stops with the process and criterion 0 needed the phone to have something to find.
+Superseded by `beacon.swift` for anything real — this one advertises a fixed UUID and does
+no crypto.
 
-**What this proves:** CoreBluetooth accepts the UUID shape and the radio transmits.
-**What it does not prove:** that an Android device can decode it. Apple hardware sometimes
-moves 128-bit UUIDs into an undocumented overflow area. Confirming the phone actually sees
-this UUID is the first task of session 2 — do it before building anything on top.
+**Criterion 0 passed on 2026-07-26.** The Galaxy A54 (Android 16) decoded this Mac's
+`42554b4e-0001-0002-0003-a1b2c3d4e5f6` at ~-55 dBm. A foreground macOS process uses the
+standard AD structure — the overflow area is a backgrounded-iOS problem, not a macOS one.
 
-## What session 2 builds here
+## `beacon.swift` — the Mac as co-host
 
-- `beacon.swift` — the real host beacon: derives the rotating HMAC code on the same 30s
-  window as the Kotlin `RotatingCode`, re-advertises each window, prints the current code
-  so it can be cross-checked against the phone.
-- `scan.swift` — the flipped direction: scans for the `42554B4E` prefix and prints the
-  decoded instance id, code, and RSSI. This is the only way to verify the phone's own
-  advertising, since there is no second Android device.
+Derives the same rotating HMAC code as `:domain`'s `RotatingCode`, on the same 30-second
+window, re-advertising on each boundary and printing the live code.
 
-Both must agree byte-for-byte with `:domain`'s `RotatingCode`. The known-vector test is
-the shared contract — same fixed key, same counter, same expected bytes on both sides.
+```bash
+swiftc -O BukInProtocol.swift beacon.swift -o beacon
+./beacon                              # instancia 42, the known-vector key
+./beacon --instancia 7 --key aabb...  # anything else
+```
+
+## `scan.swift` — the flipped direction
+
+The only way to verify the phone's own advertising with no second Android device. Scans
+unfiltered and matches the magic in code, because CoreBluetooth cannot express Android's
+prefix mask — `scanForPeripherals(withServices:)` takes whole UUIDs, and the whole UUID
+changes every 30 seconds by design.
+
+```bash
+swiftc -O BukInProtocol.swift scan.swift -o scan
+./scan --instancia 42
+#   [13:27:10] instancia_id=42 code=e2d9fc66f227c1ba rssi=-52
+```
+
+Pass `--key` to also check the code against its own derivation. Normally you cannot: the
+host generates the key with `SecureRandom` and never discloses it.
+
+## The shared contract
+
+`BukInProtocol.swift` holds the protocol and is compiled into both tools. It must agree
+byte for byte with `:domain`'s `RotatingCode` and `AdvertisementPayload`, and with the
+`pgcrypto` expression session 3 verifies against. Both tools run `selfCheck()` on startup
+against the known vector and refuse to start if it fails:
+
+```
+key 000102030405060708090a0b0c0d0e0f · instancia 42 · counter 58000000
+  -> code 67e94bf8a08959ea
+  -> uuid 42554B4E-0000-002A-67E9-4BF8A08959EA
+```
+
+Same numbers as `RotatingCodeTest`. Change them in one place and you change them in three.
+
+Both tools print unbuffered and run until ctrl-C — `setvbuf` is not optional here, because
+stdout is block-buffered when piped and a process that never exits never flushes.

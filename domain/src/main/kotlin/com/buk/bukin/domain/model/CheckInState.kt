@@ -8,6 +8,12 @@ package com.buk.bukin.domain.model
  */
 sealed interface CheckInState {
 
+    /**
+     * Signed into this session, but its hour has not come. The radio is not even switched
+     * on yet — there is nothing to find and nothing to press.
+     */
+    data class EsperandoHora(val fechaInicio: java.time.Instant) : CheckInState
+
     /** Listening for the host's broadcast. Starts on its own; nothing to press. */
     data object Scanning : CheckInState
 
@@ -16,6 +22,9 @@ sealed interface CheckInState {
 
     /** Host detected and validated. The button unlocked itself. */
     data object Ready : CheckInState
+
+    /** The confirmation is in flight. Guards against a second request from a double tap. */
+    data object Enviando : CheckInState
 
     /** Terminal. Nothing to dismiss, nothing to acknowledge. */
     data object Success : CheckInState
@@ -29,7 +38,30 @@ sealed interface CheckInState {
  * error code ever reaches the screen, and no state blames the user.
  */
 enum class CheckInErrorReason {
+    /** Hardware present, switched off. One tap away. */
     BLUETOOTH_OFF,
+
+    /** No Bluetooth radio in this device at all. Nothing to offer but an explanation. */
+    BLUETOOTH_UNAVAILABLE,
+
+    /** The nearby-devices permission was refused. Ask again, or send them to settings. */
+    PERMISSION_DENIED,
+
+    /** The scan itself failed — the platform refused to start or dropped it. Retry. */
+    SCAN_FAILED,
+
+    /** The broadcast was lost between detecting it and tapping. Look again. */
     HOST_NOT_FOUND,
+
+    /** The write failed on the way out — no network, or the server never answered. */
     SAVE_FAILED,
+
+    /**
+     * The server recomputed the code and refused it. Almost always a code that went stale
+     * while the screen sat idle; occasionally the replay defence doing its job.
+     */
+    CODE_REJECTED,
+
+    /** The server says this session's hour has passed, or has not arrived. */
+    OUT_OF_WINDOW,
 }

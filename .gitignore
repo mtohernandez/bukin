@@ -46,3 +46,8 @@ supabase/.branches/
 
 # Logs
 *.log
+
+# Compiled Mac BLE tools. The .swift sources are the deliverable; swiftc output is not.
+tools/mac-ble/advertise-probe
+tools/mac-ble/beacon
+tools/mac-ble/scan

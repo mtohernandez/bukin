@@ -14,6 +14,7 @@ import com.buk.bukin.designsystem.theme.BukInTheme
 import com.buk.bukin.feature.onboarding.OnboardingPreferences
 import com.buk.bukin.navigation.BukInKey
 import com.buk.bukin.navigation.BukInNavDisplay
+import com.buk.bukin.ui.IdentityPreferences
 
 class MainActivity : ComponentActivity() {
 
@@ -27,10 +28,12 @@ class MainActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
 
-        val startKey = if (OnboardingPreferences(this).hasSeenOnboarding) {
-            BukInKey.RolePicker
-        } else {
-            BukInKey.Onboarding
+        // Onboarding once, then a name once, then straight to the role picker forever.
+        // Both are one synchronous SharedPreferences read; neither justifies a splash.
+        val startKey = when {
+            !OnboardingPreferences(this).hasSeenOnboarding -> BukInKey.Onboarding
+            IdentityPreferences(this).colaborador == null -> BukInKey.NameEntry
+            else -> BukInKey.RolePicker
         }
 
         setContent {
@@ -39,11 +42,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    BukInNavDisplay(
-                        startKey = startKey,
-                        // Session 1 has no Bluetooth to move the state machine.
-                        showDebugStateControl = true,
-                    )
+                    BukInNavDisplay(startKey = startKey)
                 }
             }
         }

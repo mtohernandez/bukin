@@ -13,6 +13,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +36,7 @@ import com.buk.bukin.designsystem.theme.BukSpacing
 fun RolePickerScreen(
     onCollaborator: () -> Unit,
     onHost: () -> Unit,
+    onDiagnostics: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -69,6 +71,17 @@ fun RolePickerScreen(
         )
 
         Spacer(Modifier.weight(1f))
+
+        // Quiet on purpose. It is a service door, not a third role — but on demo day it is
+        // the difference between "it doesn't work" and knowing which of five things failed.
+        TextButton(onClick = onDiagnostics) {
+            Text(
+                text = stringResource(R.string.diag_open),
+                style = MaterialTheme.typography.labelSmall,
+                color = BukInkMuted,
+            )
+        }
+
         BukInFooter()
         Spacer(Modifier.height(BukSpacing.md))
     }
@@ -100,5 +113,5 @@ private fun RoleCard(title: String, hint: String, onClick: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 private fun RolePickerPreview() {
-    BukInTheme { RolePickerScreen(onCollaborator = {}, onHost = {}) }
+    BukInTheme { RolePickerScreen(onCollaborator = {}, onHost = {}, onDiagnostics = {}) }
 }
