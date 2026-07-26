@@ -22,6 +22,7 @@ afterward. Built for Buk (Chilean HR company), deployed in Colombia.
 
 | Need                                        | Read                            |
 | ------------------------------------------- | ------------------------------- |
+| **Bring it up, re-run every verification**  | `context/runbook.md`            |
 | What we're building and what's out of scope | `context/project-overview.md`   |
 | **Test hardware, deploying, what counts as verified** | `context/hardware-constraints.md` |
 | Module graph, boundaries, invariants        | `context/architecture.md`       |

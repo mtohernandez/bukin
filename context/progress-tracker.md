@@ -13,6 +13,10 @@ Every table is unreachable with the key that ships in the APK.
 There is no Apple overflow-area problem for a foreground macOS process, the Mac-as-beacon
 plan holds, and netsim was never needed.
 
+**Start here next session:** `context/runbook.md` — the pooler host that is not the obvious
+one, how to seed and re-run the 19 RPC tests, the Mac beacon, the live phone-vs-Postgres code
+cross-check, and the fact that the offline test disconnects `adb` because `adb` is the Wi-Fi.
+
 ## Roadmap
 
 | Session | Spec                              | Outcome                                              |
