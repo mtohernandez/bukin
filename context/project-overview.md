@@ -20,7 +20,8 @@ who signed actually attended, and walk-ins who fall out of the record entirely.
 
 1. A collaborator confirms attendance in one tap, physically present, no admin typing.
 2. Presence is *proven*, not asserted — a screenshot or a text message cannot fake it.
-3. The demo runs reliably on two real phones in a real room, on demo day.
+3. The demo runs reliably on the hardware that exists — one phone and the Mac as co-host
+   beacon — in a real room, on demo day. See `context/hardware-constraints.md`.
 
 ## Personas
 
@@ -104,9 +105,20 @@ Each one below is a design constraint, not a nice-to-have.
 
 ## Success criteria
 
-1. Two phones, one room: host opens a session, collaborator's app moves
+Rewritten for the hardware that exists — one phone and a Mac, no second Android device
+and no USB cable. See `context/hardware-constraints.md`.
+
+1. One phone, one Mac, one room: the Mac beacons as a co-host, the phone's app moves
    SCANNING → READY on its own, taps once, and reaches SUCCESS.
-2. The attendance row is in Postgres with `metodo_confirmacion = 'BLE'`.
-3. Tapping Check In twice produces one row and no error screen.
-4. A code captured from the broadcast and replayed a minute later is **rejected**.
-5. Onboarding runs on first launch and the UI matches the mockups.
+2. Flipped: the phone advertises as host and the Mac's scanner decodes the expected
+   instance id and rotating code. This is what verifies the Android host path.
+3. The attendance row is in Postgres with `metodo_confirmacion = 'BLE'`.
+4. Tapping Check In twice produces one row and no error screen.
+5. A code captured from the broadcast and replayed a minute later is **rejected**.
+6. Onboarding runs on first launch and the UI matches the mockups.
+
+**Not demonstrable on this hardware, and to be stated rather than implied:**
+Android-host-to-Android-collaborator operation, radio range, and behaviour at crowd
+scale. Both radios are never Android simultaneously, and one room with one phone proves
+nothing about 30–50 m through a packed hall. The architecture argument for those stands
+on its own; the demo does not evidence them.

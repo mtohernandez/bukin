@@ -23,6 +23,7 @@ afterward. Built for Buk (Chilean HR company), deployed in Colombia.
 | Need                                        | Read                            |
 | ------------------------------------------- | ------------------------------- |
 | What we're building and what's out of scope | `context/project-overview.md`   |
+| **Test hardware, deploying, what counts as verified** | `context/hardware-constraints.md` |
 | Module graph, boundaries, invariants        | `context/architecture.md`       |
 | Colors, type, the ticket card, screen states| `context/ui-context.md`         |
 | Kotlin/Compose conventions                  | `context/code-standards.md`     |
@@ -38,8 +39,13 @@ and the design mockups. **Read it, never edit it.**
 1. **Commits are never co-authored.** No `Co-Authored-By` trailer, no
    "Generated with Claude Code" line, no attribution of any kind. This overrides the
    default Claude Code commit convention. Non-negotiable.
-2. **BLE is verified on two physical phones.** Emulators have no radio. A BLE change
-   that hasn't run on real hardware is not done.
+2. **Never report something as working that you have not observed working.** Name the
+   hardware in every claim — "on the phone over wireless adb", not a bare "verified". An
+   emulator result never satisfies a physical-device criterion; if the phone was not
+   reachable, say the criterion is unmet. There is **one phone and no USB cable**, and the
+   Mac is the second BLE radio. Read `context/hardware-constraints.md` before any BLE work
+   or any verification claim. This replaces the old "two physical phones" rule, which
+   assumed hardware that no longer exists.
 3. **No secrets in the repo.** The Supabase anon key ships in the APK by design and is
    safe only because every table is deny-all RLS behind one validated RPC. Never add a
    service-role key.
@@ -70,8 +76,16 @@ before a dependency, one line before fifty.
 
 ```bash
 ./gradlew assembleDebug        # must pass before any unit of work is done
-./gradlew installDebug         # deploy to connected device
+./gradlew installDebug         # deploy to the phone (over wireless adb — no cable exists)
 ./gradlew testDebugUnitTest    # unit tests
+```
+
+The phone connects over Wi-Fi, not USB. Pair once, then reconnect whenever the port
+changes:
+
+```bash
+adb pair <ip>:<pairing-port> <6-digit-code>   # ports differ — see hardware-constraints.md
+adb connect <ip>:<connect-port>
 ```
 
 If Gradle triggers a permission prompt on every run, add `Bash(./gradlew *)` to the
@@ -82,4 +96,6 @@ allow-list in `.claude/settings.json`.
 1. It works end to end within its scope.
 2. No invariant in `context/architecture.md` was violated.
 3. `./gradlew assembleDebug` passes.
-4. `context/progress-tracker.md` reflects what changed.
+4. Every claim about it meets the evidence table in `context/hardware-constraints.md`,
+   and anything that could not be run is reported as not run.
+5. `context/progress-tracker.md` reflects what changed.

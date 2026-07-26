@@ -248,8 +248,9 @@ remembered. Keep it plain — it is scaffolding, not a feature.
 ## Acceptance criteria
 
 1. The SQL known-vector test agrees with the Kotlin implementation from spec 02.
-2. Two phones: host opens a session, collaborator goes SCANNING → READY → tap →
-   SUCCESS, and the row is in Postgres with `metodo_confirmacion = 'BLE'`.
+2. One phone plus the Mac beacon (see `context/hardware-constraints.md`): the Mac
+   co-hosts, the phone goes SCANNING → READY → tap → SUCCESS, and the row is in Postgres
+   with `metodo_confirmacion = 'BLE'`.
 3. Tapping Check In twice yields **one row and no error screen**.
 4. A collaborator with no prior enrollment gets a row with `origen = 'WALK_IN'`.
 5. A stale code (older than two windows) is rejected with a clear message.
@@ -262,7 +263,8 @@ remembered. Keep it plain — it is scaffolding, not a feature.
 
 ```bash
 ./gradlew testDebugUnitTest
-./gradlew installDebug   # both phones
+adb connect <ip>:<port>  # wireless — there is no cable
+./gradlew installDebug   # the one phone
 ```
 
 Full rehearsal in one room, then confirm the rows in the Supabase dashboard. Run the
