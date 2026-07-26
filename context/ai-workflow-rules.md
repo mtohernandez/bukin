@@ -30,19 +30,26 @@ If a change cannot be verified end to end quickly, the scope is too broad — sp
 
 ## Verification
 
-Verification is per-layer, and the BLE rule is absolute.
+`context/hardware-constraints.md` is the authority here — it holds the full evidence
+table, the deploy procedure, and the reporting rules. This is the summary.
 
 | Layer                          | How it is verified                                    |
 | ------------------------------ | ----------------------------------------------------- |
 | `:domain` codec and logic      | JVM unit tests. Known-vector test for the HMAC codec. |
-| Compose screens                | Previews, then on a device                            |
-| **Anything BLE**               | **Two physical phones, in the same room. No exceptions.** |
+| Compose screens                | Previews for layout, then the phone for behaviour     |
+| **Anything BLE**               | **Two radios, one of which is the Mac.** Phone scans while the Mac advertises; then flip — phone advertises while the Mac scans. Both directions. |
 | Supabase schema and RPC        | Call the function directly with valid, stale, and wrong codes and confirm all three outcomes |
 | Idempotency                    | Tap Check In twice. One row, no error screen.         |
 
-Emulators have no Bluetooth radio. They cannot advertise and they cannot scan. A BLE
-change that has only been compiled is not done — it is untested. Use the `android-cli`
-skill to drive real devices and capture screenshots.
+There is one phone and no second Android device. Emulators still have no Bluetooth radio
+of their own, so a BLE change that has only been compiled is untested — that has not
+changed. What changed is which hardware satisfies the rule: the Mac is a real BLE radio
+and stands in for the missing device.
+
+**The rule that actually matters:** never report something as working that you have not
+observed working. Name the hardware in the claim. If a step could not be run, list it as
+not run rather than leaving it out. An honestly unmet criterion is a fine outcome; a
+quietly downgraded one is not.
 
 ## Handling missing requirements
 
@@ -88,6 +95,8 @@ Commit messages in English, imperative, one concern per commit.
 
 1. The current unit works end to end within its defined scope.
 2. No invariant in `architecture.md` was violated.
-3. Anything touching BLE ran on two physical devices.
+3. Anything touching BLE ran on the phone against the Mac radio, in both directions.
 4. `./gradlew assembleDebug` passes.
-5. `progress-tracker.md` reflects the completed work.
+5. Every claim meets the evidence table in `hardware-constraints.md`, with the hardware
+   named and anything unrun reported as unrun.
+6. `progress-tracker.md` reflects the completed work.

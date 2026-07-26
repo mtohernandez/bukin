@@ -13,13 +13,41 @@ UI exists yet — no Bluetooth, no network.
 | Session | Spec                              | Outcome                                              |
 | ------- | --------------------------------- | ---------------------------------------------------- |
 | 1       | `specs/01-foundation.md`          | Project builds, theme matches mockups, onboarding runs |
-| 2       | `specs/02-ble-proximity.md`       | Two phones: host advertises, collaborator detects the live code |
+| 2       | `specs/02-ble-proximity.md`       | Mac beacons, phone detects the live code; flipped to verify the host path |
 | 3       | `specs/03-supabase-checkin.md`    | End-to-end check-in landing in Postgres              |
+
+## Hardware constraint change (2026-07-26)
+
+The plan assumed two Android phones and a USB cable. **Neither exists.** There is one
+phone (Android 11+), no USB-C to USB-C cable, and no second Android device.
+
+`context/hardware-constraints.md` is the new authority and overrides every older
+"two physical phones" statement. Resolved as follows:
+
+| Problem | Resolution |
+| --- | --- |
+| No cable | **Solved and in use.** Wireless adb — paired and connected to the Galaxy A54 (Android 16) on 2026-07-26; `installDebug` deployed the real APK. Both endpoints are discoverable via `adb mdns services`, so no port needs to be read off the phone; only the 6-digit pairing code must come from a human. Fallback is `python3 -m http.server` on the 12 MB APK. |
+| No second radio | **The Mac is the second BLE radio.** Verified on this M4: CoreBluetooth advertises a custom 128-bit UUID in the BukIn layout, `isAdvertising = true`. Probe preserved at `tools/mac-ble/advertise-probe.swift`. |
+| Which side the phone plays | Phone = collaborator (the primary flow), Mac = host beacon. Host path verified by flipping: phone advertises, Mac scans and decodes. |
+| Reporting discipline | Evidence table + reporting rules in `hardware-constraints.md`. Hardware named in every claim; unrun steps reported as unrun. |
+
+**The unresolved risk, and it gates session 2:** it is verified that the Mac *transmits*;
+it is **not** verified that Android can *decode* it. Apple hardware sometimes moves 128-bit
+UUIDs into an undocumented overflow area. That check is criterion 0 of spec 02 and must
+pass before any BLE code is written on top of it. Backup if it fails is netsim/Rootcanal
+(`~/Library/Android/sdk/emulator/netsimd`), which is **entirely unverified** — timebox it.
+
+Why the Mac works at all: the payload rides inside the 128-bit service UUID, a decision
+made in planning for iOS portability because `CBPeripheralManager` refuses service data.
+That same constraint is what lets a Mac emit a byte-correct BukIn advertisement. The
+architecture already sanctions it — "any device holding the instance key can advertise the
+same code."
 
 ## Current goal
 
-Execute `context/prompts/session-2.md` — `specs/02-ble-proximity.md`. Host advertises a
-rotating code, collaborator detects it, on two real phones.
+Execute `context/prompts/session-2.md` — `specs/02-ble-proximity.md`. The Mac beacons a
+rotating code and the phone detects it; then flip the radios to verify the Android host
+path. Criterion 0 — that Android can decode a macOS advertisement — gates everything.
 
 ## Completed
 
@@ -49,10 +77,16 @@ rotating code, collaborator detects it, on two real phones.
 
 1. Session 2: `:core:ble`, advertiser and scanner, permission preflight, the rotating-code
    codec in `:domain` with its JVM unit test.
-2. Determine which of the two phones can host — `isMultipleAdvertisementSupported()` is
-   still unchecked on both.
-3. Install on a physical phone. Session 1 was verified on an arm64 emulator; the APK has
-   not yet run on real hardware (it did not need to — no radio is involved yet).
+2. Check `isMultipleAdvertisementSupported()` on the phone. The Mac hosts by default, so
+   this decides only whether the Android host path can be verified at all.
+3. ~~Install on the phone over wireless adb.~~ **Done 2026-07-26.** Session 1 now verified
+   on the real device: Samsung Galaxy A54 5G (SM-A546E), Android 16 / API 36, paired and
+   connected over Wi-Fi. Onboarding, role picker, ticket card, and the scanning state all
+   render correctly; insets are clean and the status-bar icons are dark over the light
+   background, confirming the forced-light `enableEdgeToEdge` decision holds on a real
+   Samsung device. Session 1's one outstanding acceptance criterion is met.
+4. Build `tools/mac-ble/beacon.swift` and `scan.swift` — they are the test harness that
+   replaces the missing second phone, not optional extras.
 
 ## Architecture decisions
 
@@ -107,8 +141,13 @@ rotating code, collaborator detects it, on two real phones.
   built: RSSI floor (noisy, risky on demo day), host roster cross-check (built).
 - **No authentication means `colaborador_id` is client-chosen** and therefore forgeable.
   Acceptable for a demo; the RPC boundary is shaped so the JWT swap is one argument.
-- **Which phone can host** is unknown until `isMultipleAdvertisementSupported()` is
-  checked on both devices. Determine this early in session 2.
+- **Whether the phone can advertise at all** is unknown until
+  `isMultipleAdvertisementSupported()` is checked on it. It no longer decides who hosts —
+  the Mac is the default beacon — but if it returns false, the Android host path cannot be
+  verified on this hardware at all, and that must be reported rather than glossed.
+- **Whether Android can decode a macOS advertisement** is the single unresolved
+  dependency of the whole BLE plan. Criterion 0 of spec 02. See the hardware constraint
+  change above.
 - **Range, not capacity, is the ceiling at 300 people.** The radio and the database both
   handle that size without changes; a packed hall can exceed BLE's ~30–50 m indoor range
   once human bodies attenuate the signal. The fix is a co-host beacon advertising the

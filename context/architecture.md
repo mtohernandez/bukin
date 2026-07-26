@@ -102,6 +102,15 @@ the instance key can advertise the same code.** A co-host at the back of the roo
 second beacon, and a collaborator cannot tell which one it heard. No protocol change,
 no code change on the collaborator side.
 
+This property is also what makes development possible at all. The project has one Android
+phone and no second device, so **a Mac running CoreBluetooth is the co-host beacon** — it
+holds the key and advertises the same UUID, and the collaborator cannot tell the
+difference. That the payload rides in the service UUID is precisely what lets a non-Android
+device emit a byte-correct advertisement: a decision made for iOS portability turned out to
+be the thing that unblocked testing. See `context/hardware-constraints.md` for the limits
+of that substitution — notably that it does not reproduce non-connectable advertising and
+proves nothing about range.
+
 ### Database
 
 300 confirmations arriving over a few minutes is roughly 1 request/second with a burst

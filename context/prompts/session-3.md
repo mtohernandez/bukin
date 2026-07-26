@@ -46,8 +46,9 @@ the client, the migration is wrong.
 
 **Verification gate — you are not done until:**
 
-- Two phones, one room: SCANNING → READY → tap → SUCCESS, and the row is in Postgres
-  with `metodo_confirmacion = 'BLE'`
+- One phone plus the Mac beacon, one room (see @context/hardware-constraints.md):
+  SCANNING → READY → tap → SUCCESS, and the row is in Postgres with
+  `metodo_confirmacion = 'BLE'`
 - Tapping Check In twice yields **one row and no error screen**
 - A collaborator with no prior enrollment gets `origen = 'WALK_IN'`
 - A replayed code, captured and submitted a minute later, is **rejected** — this is the
@@ -67,3 +68,69 @@ the client, the migration is wrong.
 results. Note any limitation worth stating out loud in the presentation — particularly
 the relay-attack limit documented in `architecture.md`. Disclosing it is worth more in an
 architecture review than having it discovered.
+
+1. Install package
+Run this command to install the required dependencies.
+Code:
+File: Code
+```
+implementation("io.github.jan-tennert.supabase:supabase-kt:VERSION")
+```
+
+2. Add files
+Copy the following code into your project.
+Code:
+File: MainActivity.kt
+```
+1val supabase = createSupabaseClient(
+2    supabaseUrl = "https://nfysenajrfquusawyotc.supabase.co",
+3    supabaseKey = "sb_publishable_E9INM8PvMJpKKKOjaqTP8Q_HWk0_tqS"
+4  ) {
+5    install(Postgrest)
+6}
+7
+8class MainActivity : ComponentActivity() {
+9    override fun onCreate(savedInstanceState: Bundle?) {
+10        super.onCreate(savedInstanceState)
+11        setContent {
+12            MaterialTheme {
+13                // A surface container using the 'background' color from the theme
+14                Surface(
+15                    modifier = Modifier.fillMaxSize(),
+16                    color = MaterialTheme.colorScheme.background
+17                ) {
+18                    TodoList()
+19                }
+20            }
+21        }
+22    }
+23}
+24
+25@Composable
+26fun TodoList() {
+27    var items by remember { mutableStateOf<List<TodoItem>>(listOf()) }
+28    LaunchedEffect(Unit) {
+29        withContext(Dispatchers.IO) {
+30            items = supabase.from("todos")
+31                              .select().decodeList<TodoItem>()
+32        }
+33    }
+34    LazyColumn {
+35        items(
+36            items,
+37            key = { item -> item.id },
+38        ) { item ->
+39            Text(
+40                item.name,
+41                modifier = Modifier.padding(8.dp),
+42            )
+43        }
+44    }
+45}
+```
+
+File: TodoItem.kt
+```
+1@Serializable
+2data class TodoItem(val id: Int, val name: String)
+```
