@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose owns every colour. This exists only so the window has a theme before
+         the first frame; the splash background is set from the Compose theme instead. -->
+    <style name="Theme.BukIn" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

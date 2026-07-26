@@ -4,7 +4,9 @@ Update this file after every meaningful implementation change.
 
 ## Current phase
 
-Planning complete. **Session 1 not started.** No application code exists yet.
+**Session 1 complete.** The project builds, installs, and runs. Onboarding, the role
+picker, and all five collaborator states render and match the mockups. Nothing below the
+UI exists yet — no Bluetooth, no network.
 
 ## Roadmap
 
@@ -16,22 +18,41 @@ Planning complete. **Session 1 not started.** No application code exists yet.
 
 ## Current goal
 
-Execute `context/prompts/session-1.md`.
+Execute `context/prompts/session-2.md` — `specs/02-ble-proximity.md`. Host advertises a
+rotating code, collaborator detects it, on two real phones.
 
 ## Completed
 
 - Planning: `context/` filled, three specs written, three master prompts written,
   `CLAUDE.md` created.
+- **Session 1 — foundation, design system, onboarding.**
+  - Gradle monorepo: `:app`, `:domain`, `:core:designsystem`, `:features:onboarding`,
+    `:features:checkin`, `:features:host` (empty placeholder). Version catalog pinned to
+    AGP 9.2.0, Kotlin 2.3.21, Compose BOM 2026.06.01, Nav3 1.0.1, minSdk 26.
+  - Buk theme. `Color.kt` holds exactly the four brand hex values and derives every other
+    token; it is verifiably the only file in the project containing a hex literal.
+  - `TicketCard` with the dotted stub separator and the tucked "Necesito ayuda" strip,
+    `CheckInButton` with pulsing concentric halos, `ProximityIllustration`, `SuccessCheck`,
+    `NoticeCard`, `BukInFooter`.
+  - `CheckInState` as a sealed interface in `:domain`; `CheckInScreen` renders all five
+    states with a persistent header and footer and an animated transition into Success.
+  - 3-screen onboarding with the spec copy verbatim, shown once via `SharedPreferences`.
+  - Role picker and Navigation 3 back stack.
+  - Verified on device: `assembleDebug` and `installDebug` pass, every state screenshotted
+    and compared against `docs/assets/`, onboarding confirmed to appear once.
 
 ## In progress
 
-- None yet.
+- None.
 
 ## Next up
 
-1. Add `Bash(./gradlew *)` to the allow-list in `.claude/settings.json` — otherwise
-   every build triggers a permission prompt.
-2. Session 1: scaffold the Gradle monorepo and module skeleton.
+1. Session 2: `:core:ble`, advertiser and scanner, permission preflight, the rotating-code
+   codec in `:domain` with its JVM unit test.
+2. Determine which of the two phones can host — `isMultipleAdvertisementSupported()` is
+   still unchecked on both.
+3. Install on a physical phone. Session 1 was verified on an arm64 emulator; the APK has
+   not yet run on real hardware (it did not need to — no radio is involved yet).
 
 ## Architecture decisions
 
@@ -59,8 +80,23 @@ Execute `context/prompts/session-1.md`.
 | Single APK with a role switch | Two apps would double the build and install surface for no demo benefit. |
 | minSdk 26 | Required by supabase-kt, and covers the mid-range devices this app targets. |
 | No location permission | `neverForLocation` on `BLUETOOTH_SCAN` plus `ACCESS_FINE_LOCATION` capped at API 30 means Android 12+ needs no location grant. Directly answers the top-3 user complaint about location errors indoors. |
+| **The single `strings.xml` lives in `:core:designsystem`, not `:app`** | Spec 01 placed it in `app/src/main/res/`. That cannot work: Android resource merging is one-directional, so a library module cannot reference `R.string` from the app that depends on it. Every UI module already depends on `:core:designsystem`, which makes it the only module where one shared strings file is reachable from all of them. The invariant the spec cared about — one file, no hardcoded copy — is preserved. |
+| Illustration and wordmark drawn in Compose, not shipped as vector drawables | A `<vector>` needs its fill colour baked into XML, which would put a hex value outside `Color.kt` and break the project's own rule. A `Canvas` takes the theme token directly. Also removes the icon-pack dependency for a clock and a sun. |
+| `:core:ble` and `:core:data` not created yet | They would be empty Android library modules that lengthen every build for nothing. Spec 01's file manifest lists neither, and calls out `:features:host` as the one module to stub. Session 2 creates `:core:ble`, session 3 `:core:data`, each with something in it. |
+| No `BukInApplication` class | There is no DI container, no startup work, and no global state to initialise. An empty `Application` subclass is scaffolding for a later session that can add it in one line if it ever needs one. |
+| Role picker lives in `:app`, not a feature module | It is a fork in the routing graph rather than a feature — it owns no state and no domain logic. Giving it a module would double the build surface for two cards. |
+| `enableEdgeToEdge` forced to `SystemBarStyle.light` on both bars | The default `auto` style follows the *system* dark theme. This app is light-only, so on a phone in dark mode the default would put white status-bar icons on a near-white background. Forcing light bars is what makes the light-only decision actually hold on a real device. |
+| Onboarding has no illustrations | Three pages of type on the brand field, and the pages carry real information. Mixed or half-finished illustrations would read worse than none, and nothing in the mockups specifies them. Cheap to add later if the deck wants them. |
 
 ## Open questions
+
+- **The mockup's page background is more saturated than `BukBackground`.** The mockups
+  render the field as a clearly periwinkle tone; `#F7F9FF` is near-white and reads that
+  way on device. The four brand values are stated as authoritative in three documents, so
+  the token was implemented as specified rather than retuned to match a mockup render.
+  If the mockup is the authority here, it is a one-line change in `Color.kt` — a derived
+  token such as `BukBlue.copy(alpha = 0.08f).compositeOver(BukBackground)` mapped to
+  `background` gets there without introducing a fifth hex. **Needs a decision.**
 
 - **Automatic check-out is unsolved.** Users forget to mark "Me retiro". Out of scope
   for the demo; check-in is the priority. Candidate approaches if revisited: geofence
@@ -91,3 +127,21 @@ and the advertising payload fits comfortably in 31 bytes (~19 used).
 
 Every version, byte layout, permission block, and SQL snippet the build sessions need is
 embedded in the specs. Do not re-derive them.
+
+Session 1 (2026-07-25/26) discovered the following, none of which was predictable from the
+plan:
+
+- **AGP 9.2.0 requires Gradle 9.4.1.** The `android` CLI scaffolds a Gradle 9.1.0 wrapper,
+  which fails immediately against the pinned AGP. The wrapper is now on 9.4.1.
+- **AGP 9 has built-in Kotlin support and rejects the `kotlin-android` plugin.** Applying
+  it is a hard build error, not a warning. Android modules apply only
+  `com.android.library` / `com.android.application` plus the Compose compiler plugin;
+  `:domain` still applies `kotlin-jvm` because it is not an Android module.
+- **The `android` CLI resolves older versions than the specs pin** (AGP 9.0.1, Kotlin
+  2.3.20, BOM 2026.03.01). All the spec-pinned versions were confirmed to exist in Maven
+  and are what the catalog uses. Scaffold with the CLI, then pin.
+- **The pre-existing `pixel_test` AVD is a 32-bit `arm` image and cannot start** — QEMU2
+  refuses it and the classic engine is gone. A `medium_phone` arm64 AVD was created and is
+  what session 1 was verified on.
+- The local environment had no Android SDK and no `local.properties`; both now exist. The
+  SDK lives at `~/Library/Android/sdk`.

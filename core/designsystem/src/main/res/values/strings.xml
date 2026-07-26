@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Every user-facing string in the app. Colombian Spanish, warm, never bureaucratic.
+    This is the only strings file in the project — features read from here.
+-->
+<resources>
+    <string name="app_name">BukIn</string>
+
+    <!-- ===== Onboarding ===== -->
+    <string name="onboarding_one_title">Tu asistencia, en un toque</string>
+    <string name="onboarding_one_body">Sin listas, sin fotos, sin códigos que escribir. Llegas, tocas una vez, listo.</string>
+
+    <string name="onboarding_two_title">Tu teléfono encuentra a tu anfitrión</string>
+    <string name="onboarding_two_body">Usamos Bluetooth para confirmar que estás en la sala. No usamos tu ubicación ni tu cámara. Solo deja el Bluetooth encendido.</string>
+
+    <string name="onboarding_three_title">Por ahora, registramos tu entrada</string>
+    <string name="onboarding_three_body">Marcas al llegar. La salida todavía la maneja tu anfitrión. Necesitas Bluetooth y conexión a internet en el momento de marcar.</string>
+
+    <string name="onboarding_skip">Saltar</string>
+    <string name="onboarding_next">Siguiente</string>
+    <string name="onboarding_finish">Empezar</string>
+    <string name="onboarding_page_indicator">Paso %1$d de %2$d</string>
+
+    <!-- ===== Role picker ===== -->
+    <string name="role_title">¿Cómo entras hoy?</string>
+    <string name="role_collaborator">Soy colaborador</string>
+    <string name="role_collaborator_hint">Vengo al curso y quiero marcar mi asistencia.</string>
+    <string name="role_host">Soy anfitrión</string>
+    <string name="role_host_hint">Yo dicto el curso y abro la sala.</string>
+
+    <!-- Host mode arrives in session 2; the route exists so the fork is real today. -->
+    <string name="host_placeholder_title">Modo anfitrión</string>
+    <string name="host_placeholder_body">Aquí vas a abrir la sala y ver quién va llegando. Todavía lo estamos armando.</string>
+    <string name="host_placeholder_action">Volver</string>
+
+    <!-- ===== Ticket card ===== -->
+    <string name="ticket_badge">Ticket</string>
+    <string name="ticket_duration_label">Duración:</string>
+    <string name="ticket_checkin_label">Check In</string>
+    <string name="ticket_exit_label">Salida</string>
+    <string name="ticket_help">Necesito ayuda</string>
+    <string name="ticket_clock_description">Hora de inicio</string>
+
+    <!-- ===== Check-in states ===== -->
+    <string name="checkin_scanning">Estamos localizando a tu anfitrión…</string>
+    <string name="checkin_button">Check In</string>
+    <string name="checkin_success">Registraste tu asistencia exitosamente.</string>
+    <string name="checkin_success_description">Asistencia registrada</string>
+    <string name="checkin_proximity_description">Tu teléfono buscando al anfitrión</string>
+
+    <!--
+        Offline copy deliberately differs from the mockup. The mockup promised presence
+        alone was enough; without internet v1 genuinely cannot save the attendance.
+    -->
+    <string name="checkin_offline_title">Sin conexión</string>
+    <string name="checkin_offline_body">Podemos encontrar a tu anfitrión, pero necesitas internet para guardar tu asistencia.</string>
+
+    <!-- ===== Blocked states: each names its cause and offers the way out ===== -->
+    <string name="error_bluetooth_off_title">Tu Bluetooth está apagado</string>
+    <string name="error_bluetooth_off_body">Lo necesitamos para encontrar a tu anfitrión en la sala.</string>
+    <string name="error_bluetooth_off_action">Encender Bluetooth</string>
+
+    <string name="error_no_host_title">No pudimos encontrar a tu anfitrión</string>
+    <string name="error_no_host_body">Acércate un poco más a la sala y volvemos a buscar.</string>
+    <string name="error_no_host_action">Buscar de nuevo</string>
+
+    <string name="error_save_failed_title">No alcanzamos a guardar tu asistencia</string>
+    <string name="error_save_failed_body">Tu conexión se cayó justo al enviar. Nada se perdió, solo hay que reintentar.</string>
+    <string name="error_save_failed_action">Reintentar</string>
+
+    <!-- ===== Footer ===== -->
+    <string name="footer_wordmark_prefix">·buk </string>
+    <string name="footer_wordmark_italic">in</string>
+    <string name="footer_wordmark_suffix">·</string>
+    <string name="footer_microcopy">Usamos tecnología de proximidad,\nno desactives tu bluetooth.</string>
+
+    <!-- ===== Debug-only state switcher (session 1: no Bluetooth to drive states) ===== -->
+    <string name="debug_next_state">Estado siguiente</string>
+
+    <!-- ===== Demo course. Session 3 replaces this with real rows from Supabase. ===== -->
+    <string name="demo_curso">Manejo de alimentos</string>
+    <string name="demo_fecha">Lunes, 13 de Julio</string>
+    <string name="demo_hora_inicio">10:00 AM</string>
+    <string name="demo_duracion">2 horas</string>
+    <string name="demo_hora_checkin">9:50 AM</string>
+    <string name="demo_hora_salida">12:00 PM</string>
+</resources>
