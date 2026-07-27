@@ -1,50 +1,57 @@
 package com.buk.bukin.feature.host
 
 import android.app.Application
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.buk.bukin.data.BukInRepository
 import com.buk.bukin.designsystem.R
-import com.buk.bukin.designsystem.component.BukInFooter
+import com.buk.bukin.designsystem.component.Avatar
+import com.buk.bukin.designsystem.component.BukScreen
+import com.buk.bukin.designsystem.component.BukSkeleton
+import com.buk.bukin.designsystem.component.BukSkeletonHost
 import com.buk.bukin.designsystem.component.InstanciaHora
 import com.buk.bukin.designsystem.theme.BukInTheme
+import com.buk.bukin.designsystem.theme.BukInk
 import com.buk.bukin.designsystem.theme.BukInkMuted
+import com.buk.bukin.designsystem.theme.BukShape
 import com.buk.bukin.designsystem.theme.BukSpacing
-import com.buk.bukin.designsystem.theme.BukSuccess
+import com.buk.bukin.designsystem.theme.BukSuccessInk
+import com.buk.bukin.designsystem.theme.BukSurface
 import com.buk.bukin.domain.model.Asistente
 import com.buk.bukin.domain.model.MetodoConfirmacion
 import com.buk.bukin.domain.model.Origen
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import java.time.Instant
 
 /**
@@ -66,7 +73,7 @@ class RosterViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val asistentes: StateFlow<List<Asistente>> =
+    val asistentes: StateFlow<List<Asistente>?> =
         instanciaId
             .flatMapLatest { id ->
                 flow {
@@ -76,7 +83,10 @@ class RosterViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
             }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(2_000), emptyList())
+            // Null means "nothing has come back yet", which is what the skeleton stands in
+            // for. An empty list means the room is genuinely empty, which is a real answer
+            // and gets a real sentence.
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(2_000), null)
 
     private companion object {
         /** Fast enough that an arrival appears while the person is still at the door. */
@@ -91,62 +101,61 @@ fun RosterRoute(
     modifier: Modifier = Modifier,
     viewModel: RosterViewModel = viewModel(),
 ) {
-    androidx.compose.runtime.LaunchedEffect(instanciaId) { viewModel.bind(instanciaId) }
+    LaunchedEffect(instanciaId) { viewModel.bind(instanciaId) }
     val asistentes by viewModel.asistentes.collectAsStateWithLifecycle()
     RosterScreen(asistentes = asistentes, onBack = onBack, modifier = modifier)
 }
 
 @Composable
 fun RosterScreen(
-    asistentes: List<Asistente>,
+    asistentes: List<Asistente>?,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val llegados = asistentes.count { it.fechaLlegada != null }
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .safeDrawingPadding()
-            .padding(horizontal = BukSpacing.gutter),
+    BukScreen(
+        modifier = modifier,
+        title = stringResource(R.string.roster_title),
+        onBack = onBack,
     ) {
-        Spacer(Modifier.height(BukSpacing.md))
-        Text(
-            text = stringResource(R.string.roster_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Spacer(Modifier.height(BukSpacing.xs))
-        Text(
-            text = stringResource(R.string.roster_count, llegados, asistentes.size),
-            style = MaterialTheme.typography.bodyMedium,
-            color = BukInkMuted,
-        )
-        Spacer(Modifier.height(BukSpacing.md))
+        BukSkeletonHost {
+            if (asistentes == null) {
+                Spacer(Modifier.height(BukSpacing.md))
+                Column(verticalArrangement = Arrangement.spacedBy(BukSpacing.sm)) {
+                    repeat(SkeletonRows) {
+                        BukSkeleton(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(RowHeight),
+                            shape = BukShape.xl,
+                        )
+                    }
+                }
+                return@BukSkeletonHost
+            }
 
-        if (asistentes.isEmpty()) {
+            val llegados = asistentes.count { it.fechaLlegada != null }
             Text(
-                text = stringResource(R.string.roster_empty),
-                style = MaterialTheme.typography.bodyMedium,
+                text = stringResource(R.string.roster_count, llegados, asistentes.size),
+                style = MaterialTheme.typography.bodySmall,
                 color = BukInkMuted,
             )
-        }
+            Spacer(Modifier.height(BukSpacing.md))
 
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(BukSpacing.xs),
-        ) {
-            items(asistentes, key = { it.colaboradorId }) { asistente ->
-                AsistenteRow(asistente)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (asistentes.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.roster_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = BukInkMuted,
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(BukSpacing.sm),
+                ) {
+                    items(asistentes, key = { it.colaboradorId }) { AsistenteRow(it) }
+                }
             }
         }
-
-        TextButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text(stringResource(R.string.host_back), color = BukInkMuted)
-        }
-        BukInFooter()
-        Spacer(Modifier.height(BukSpacing.md))
     }
 }
 
@@ -155,13 +164,21 @@ private fun AsistenteRow(asistente: Asistente) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = BukSpacing.sm),
+            .clip(BukShape.xl)
+            .background(BukSurface)
+            .padding(horizontal = BukSpacing.md, vertical = BukSpacing.sm2),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
+        // The monogram, which is what the roster shows for everyone — there are no photos
+        // on this side, and there never will be without a bucket.
+        Avatar(nombre = asistente.nombre)
+        Spacer(Modifier.width(BukSpacing.sm2))
         Column(Modifier.weight(1f)) {
-            Text(text = asistente.nombre, style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.height(BukSpacing.xs))
+            Text(
+                text = asistente.nombre,
+                style = MaterialTheme.typography.titleSmall,
+                color = BukInk,
+            )
             Text(
                 text = detalle(asistente),
                 style = MaterialTheme.typography.bodySmall,
@@ -172,7 +189,9 @@ private fun AsistenteRow(asistente: Asistente) {
             Text(
                 text = InstanciaHora(it),
                 style = MaterialTheme.typography.labelLarge,
-                color = BukSuccess,
+                // BukSuccess measured 2.98:1 here and could not be read. All success
+                // meaning is BukSuccessInk.
+                color = BukSuccessInk,
             )
         }
     }
@@ -193,7 +212,10 @@ private fun detalle(asistente: Asistente): String {
     }
 }
 
-@Preview(showBackground = true)
+private val RowHeight = 68.dp
+private const val SkeletonRows = 5
+
+@Preview(showBackground = true, backgroundColor = 0xFFE3E8F6)
 @Composable
 private fun RosterPreview() {
     BukInTheme {
@@ -212,4 +234,10 @@ private fun RosterPreview() {
             onBack = {},
         )
     }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFE3E8F6)
+@Composable
+private fun RosterLoadingPreview() {
+    BukInTheme { RosterScreen(asistentes = null, onBack = {}) }
 }

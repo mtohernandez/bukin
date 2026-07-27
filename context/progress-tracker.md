@@ -4,7 +4,12 @@ Update this file after every meaningful implementation change.
 
 ## Current phase
 
-**Complete.** All three sessions delivered. A collaborator types their name, signs into a
+**Session 5 delivered the design overhaul.** All fifteen units of `specs/04-design.md` are
+built; the app was walked end to end on the Galaxy A54 over wireless adb with the Mac as the
+host beacon. See "Session 5 results" below for what was verified, what was deviated from, and
+the three criteria that could not be run in this environment.
+
+**All three build sessions delivered.** A collaborator types their name, signs into a
 session, waits for its hour, and one tap puts a verified row in Postgres. The host names and
 opens a room, watches arrivals appear on a live roster, and can register someone by hand.
 Every table is unreachable with the key that ships in the APK.
@@ -13,9 +18,17 @@ Every table is unreachable with the key that ships in the APK.
 There is no Apple overflow-area problem for a foreground macOS process, the Mac-as-beacon
 plan holds, and netsim was never needed.
 
-**Start here next session:** `context/runbook.md` — the pooler host that is not the obvious
-one, how to seed and re-run the 19 RPC tests, the Mac beacon, the live phone-vs-Postgres code
-cross-check, and the fact that the offline test disconnects `adb` because `adb` is the Wi-Fi.
+**Session 4 added a design spec and changed no code.** `context/specs/04-design.md` is eleven
+units of design work, and it fixes three measured accessibility failures that are shipping
+today alongside the visual overhaul. `context/ui-context.md` was rewritten as the standing
+token authority.
+
+**Start here next session:** `context/ui-context.md` is the standing token authority and now
+matches the code. The open items are the three unrun criteria at the end of the session-5
+section. `context/runbook.md` is still the operational reference — the pooler
+host that is not the obvious one, how to seed and re-run the 19 RPC tests, the Mac beacon, the
+live phone-vs-Postgres code cross-check, and the fact that the offline test disconnects `adb`
+because `adb` is the Wi-Fi.
 
 ## Roadmap
 
@@ -24,6 +37,8 @@ cross-check, and the fact that the offline test disconnects `adb` because `adb` 
 | 1       | `specs/01-foundation.md`          | Project builds, theme matches mockups, onboarding runs |
 | 2       | `specs/02-ble-proximity.md`       | Mac beacons, phone detects the live code; flipped to verify the host path |
 | 3       | `specs/03-supabase-checkin.md`    | End-to-end check-in landing in Postgres. **Done** — results below |
+| 4       | `specs/04-design.md`              | Design spec authored. Research + audit only, no code. **Done** — results below |
+| 5       | `specs/04-design.md`              | Execute the design spec. **Done** — results below |
 
 ## Hardware constraint change (2026-07-26)
 
@@ -274,6 +289,277 @@ Fixed at the root rather than by adding a button:
 Invariant 7 says every failure has a distinct, actionable message and no permanently
 disabled control. This state had been violating it since session 1's mockup.
 
+## Session 4 results (2026-07-26) — design research and spec
+
+**No production code was changed.** This session read every UI file, measured every colour
+pair, researched the platform standards, and wrote `context/specs/04-design.md` plus a
+rewritten `context/ui-context.md`. `./gradlew assembleDebug` and `./gradlew test` are
+untouched.
+
+### Three accessibility failures are shipping today
+
+Measured with a WCAG 2.1 relative-luminance calculation over the composited token values, at
+the worst end of every gradient. These are not preferences.
+
+| Token | Used for | Measured | Needed |
+| --- | --- | --- | --- |
+| `BukOnBlueMuted` = white @ 0.55 | every ticket label, 12sp | **2.41:1** at the gradient's light end | 4.5:1 |
+| `BukInkMuted` = ink @ 0.55 | footer, hints, all muted body | **4.40:1** | 4.5:1 |
+| `BukSuccess` `#2BAB51` | success text, roster times, "Registrado" | **2.98:1** on white, **2.43:1** on the field | 4.5:1 |
+
+Worse: `BukBlueLight` is light enough that **pure white on it measures 4.27:1**, so the
+ticket's own course name fails. No alpha of white fixes it — white at 92% still reaches only
+4.44:1. **The gradient was running the wrong direction.** Inverting it (`BukBlue →
+BukBlueDeep`) makes `BukBlue` itself the lightest point of the card and every level clears:
+white 7.60:1, muted 4.80:1, tear dots 3.49:1 against a 3:1 graphic threshold.
+
+`BukSuccess` fails as text *and* as a graphic, so it is demoted to a decorative accent and
+`BukSuccessInk = lerp(BukSuccess, BukInk, 0.30)` (`#1C7544`, 4.65:1 on the field) carries all
+success meaning. All four brand values stay in `Color.kt`; no fifth hex is introduced.
+
+### Bugs the audit found that a compile never would
+
+1. **"Necesito ayuda" has been a dead control since session 1.** `TicketCard` declares
+   `onHelpClick: () -> Unit = {}` and `CheckInScreen.kt:175` calls `TicketCard(instancia = it)`,
+   taking the default. Tapping it does nothing, on every screen. Spec unit 3 turns it into the
+   contextual help sheet.
+2. **4 of the 13 typography styles the app references are declared nowhere**, so they fall
+   back to Material defaults in Roboto: `bodySmall` (**12 call sites — the most-used style in
+   the app**), `titleSmall` (4), `labelLarge` (4), `headlineSmall` (3). Those 23 call sites
+   sit almost entirely in `HostScreen`, `SessionPickerScreen`, `HostRosterScreen` and
+   `ManualRegistrationScreen` — the exact set this tracker already called "plain Material".
+   They are plain Material because half their type literally is.
+3. **`SessionPickerScreen` tracks `cargando` and never renders it.** The `when` at
+   `SessionPickerScreen.kt:207-238` falls through to a `LazyColumn` over an empty list —
+   a blank screen, then a pop.
+4. **`ReducedMotion.animationsEnabled()` reads the setting once** inside `remember(resolver)`
+   and never observes a change. Flip the setting and the app never notices.
+5. **The halo does not fit a small phone.** `CheckInButton`'s outer ring is 280dp wide; on a
+   320dp device with 20dp gutters that leaves exactly zero margin.
+6. **The SCANNING screen is completely frozen.** `ProximityIllustration` contains no
+   animation API of any kind — only `CheckInButton` and `SuccessCheck` animate anywhere in
+   `:core:designsystem`. So the state a person spends the longest waiting in shows a static
+   picture above a static sentence, which is indistinguishable from a hung app and is the
+   same failure shape as the top complaint in `docs/feedback.md`. Missed on the first pass of
+   this audit and caught on review; `ui-context.md` listed "three moments that earn motion"
+   and scanning was not one of them, which is why it shipped static from session 1.
+
+### The flow is demo-shaped, and that is separate from how it looks
+
+Caught on review after the first draft of spec 04, which had specced only the visual layer.
+A product can be beautiful and still behave like a prototype, and this one does:
+
+1. **`RolePickerScreen` gates every launch.** `MainActivity.startKey` sends every returning
+   user there forever, so a collaborator answers "¿Cómo entras hoy?" every day about a
+   distinction that exists for the app's benefit. Almost none of the 300 collaborators will
+   ever host. **Kept for the demo by decision** — role switching is constant while
+   demonstrating — and recorded in spec 04 as a known cut with its upgrade path, so it is not
+   rediscovered later as a defect.
+2. **First run is three separate surfaces** with a hard cut between each: onboarding → name
+   entry → role picker. Fixed by unit 11: onboarding becomes four steps and absorbs the name
+   question, so first run is one continuous flow.
+3. **The loudest complaint in `docs/feedback.md` was untouched** — *"There is no internal
+   panel or profile menu where a worker can verify their history of past punch-ins."* The
+   first draft of the spec answered it with an avatar and a greeting, which is decoration
+   where the user asked for proof.
+
+   **`listar_instancias` has no `WHERE` clause.** It already returns every instance, past and
+   future, `order by fecha_inicio desc`, each with this collaborator's `asistencia` flag. The
+   history is already on the device and the app flattens it into one list. Unit 12 builds the
+   receipt with **no migration, no RPC, and no new network call.**
+4. **Nothing in the app has a press state.** Every clickable surface relies on the default
+   ripple; the ticket's help strip has a bare `Modifier.clickable`. Unit 13.
+5. **No state change is announced to a screen reader.** SCANNING → READY → SUCCESS is silent
+   under TalkBack, which is the accessibility form of this product's founding complaint —
+   "you never know if your attendance was actually registered" — with no visual workaround
+   available. Unit 14.
+
+### Research findings that overturned the obvious choice
+
+| Question | Answer | Consequence |
+| --- | --- | --- |
+| Adopt Material 3 Expressive? | **No.** `MaterialShapes` and `LoadingIndicator` were *reverted to experimental* in material3 1.5.0-alpha19 (b/497876695, b/497877850); `MotionScheme` graduated only on the 1.5 alpha branch. BOM 2026.06.01 pins material3 **1.4.0** stable. | Motion is built on stable `spring()` with our own token object. **No BOM bump.** |
+| Downloadable Google Fonts for Inter/Merriweather? | **No.** Variable fonts are unsupported through the provider ([223262013](https://issuetracker.google.com/issues/223262013)), and the fallback chain flashes on first launch. | Bundle both, subset to latin+latin-ext, ~370 KB. |
+| Glass effects? | `Modifier.blur` is a **silent no-op below API 31**; minSdk is 26. | Two surfaces only, and both must look finished as translucent solids. |
+| `lerp` colour space (Oklab vs sRGB)? | Irrelevant here — the two differ by 0.01:1 on the token in question. | Stopped worrying about it. |
+
+### Decisions taken
+
+| Decision | Resolution |
+| --- | --- |
+| Page field | Periwinkle `BukField`, closing the session-1 open question. |
+| Onboarding motion | `lottie-compose` 6.7.1, three bundled JSONs, **every** colour overridden at runtime via `LottieDynamicProperties` on `KeyPath("**")` so the palette comes from tokens and not the file. The one new UI dependency. |
+| Profile picture | **On-device only.** `PickVisualMedia` (no permission), copied to `filesDir`, path beside the name in `IdentityPreferences`. No bucket, no RLS, no Coil — `BitmapFactory` with `inSampleSize` for one image. |
+| Success feedback | `HapticFeedbackType.Confirm` always; a ~15 KB tone **only** when `AudioManager.ringerMode == RINGER_MODE_NORMAL`. A silent phone in a training room stays silent. |
+| Onboarding is four steps | Steps 1–3 keep their copy verbatim; step 4 is the name question inline, so first run is one flow instead of three surfaces. The name *form* becomes a shared composable — `NameEntryScreen` stays reachable, because "No soy X" navigates to it. Step 4 has no Skip: the app cannot function without a name, and a skippable step that then blocks you is worse than no skip. |
+| The role picker stays, for now | It gates every launch and is the clearest demo tell in the product, but role switching is constant on demo day and a two-tap profile path costs more there than the daily tax costs a user who does not exist yet. Explicitly a scope acceptance, not an oversight. Upgrade is `MainActivity.startKey` plus one menu entry; `SessionPicker` already takes `isHost` as a parameter. |
+| Attendance history needs no backend | `listar_instancias` returns every instance with an `asistencia` flag and no `WHERE` clause. The receipt users asked for is presentation over data already being fetched. If unit 12 finds itself editing `supabase/`, something was misread. |
+| Splash | `core-splashscreen` 1.2.0, AVD ≤1000 ms on the 432dp/288dp canvas. **The only indeterminate indicator left in the app.** Not held artificially — `MainActivity` has nothing to wait for. |
+| Launcher icon | The `in` glyph from `docs/assets/buk-in.svg`, 108dp layers inside the 66dp safe viewport, with a `<monochrome>` layer. Replaces the Android Studio stock robot still shipping today. |
+| No fades | `fadeIn`/`fadeOut` banned. Transitions move, scale, and morph. |
+
+### Not verified, because nothing was built
+
+Everything in spec 04 is a design intention until session 5 runs it on the **Galaxy A54 over
+wireless adb**. No claim in this section is a claim about on-device appearance or frame rate;
+the contrast numbers are computed from token values, and the audit findings are readings of
+the source. Both are checkable without a device, which is why they are stated here and the
+rest is not.
+
+## Session 5 results (2026-07-26) — the design overhaul
+
+Every device claim below is on the **Samsung Galaxy A54 5G (SM-A546E), Android 16 / API 36,
+over wireless adb**, with the **M4 Mac** as the host beacon. Nothing here was observed on an
+emulator. Three criteria could not be run at all and are listed as unrun rather than
+downgraded.
+
+### Post-review fixes (same session)
+
+- **Screen transitions travelled a fifth of the width and were cut**, which reads as content
+  vanishing rather than moving. Now a full-width shared axis, still with no fade.
+- **The onboarding Lottie loops flickered.** Two causes: `animationsEnabled()` is an observed
+  value and flipping from its initial emission restarted the clip mid-composition, and the
+  clips run 1–2.6 s at source speed and loop with a hard cut. Read once, `speed = 0.5f`,
+  `restartOnPlay = false`.
+- **Host path walked on the phone** for the first time: host screen → roster → manual
+  registration, all on `BukScreen`, no crashes.
+
+### What shipped
+
+All fifteen units. `./gradlew assembleDebug` and `./gradlew test` pass (26 tests, 0 failures —
+the count has grown from session 2's 22). `git diff --stat supabase/` is empty: no migration,
+no RPC, no backend change of any kind.
+
+| # | Criterion | Result |
+| --- | --- | --- |
+| 1 | No functional regression | **PASS.** `./gradlew test` green, 26/0. `rpc_test.sql` = **19 / 0 / TODO VERDE**. A live BLE check-in wrote a real row: `Ana Restrepo / asistencia=true / BLE / WALK_IN / 2026-07-27T00:07:01Z`, confirmed through `listar_asistencia(2)` and by reading `inscripcion` directly |
+| 2 | `Color.kt` is still the only hex | **PASS.** The only other `.kt` match is `0xFFFFFFFFL`, a bitmask in `AdvertisementPayload`, and it predates this session |
+| 3 | Every used type style is declared | **PASS.** 15 styles referenced, 15 declared, none falling through to a Material default. Was 13 referenced / 9 declared |
+| 4 | Contrast holds on device | **PASS by construction, spot-checked visually.** The token values are the computed ones; screenshots show white, muted and faint levels all legible on the deepened gradient. Not sampled with a pixel-level contrast tool |
+| 5 | No fades | **PASS.** The only `fadeIn`/`fadeOut` in the tree is the comment saying they are banned |
+| 6 | "Necesito ayuda" opens the sheet | **PASS.** Opened on device; content verified contextual for the permission-denied state. Not walked through all five states on device |
+| 7 | Success morphs | **PASS.** Caught mid-flight (container closed from pill to circle, recolouring through teal, label gone) *and* completed: filled `BukSuccessInk` circle, white check drawn inside, Merriweather payoff line. One continuous object throughout. The tone is ringer-gated and the phone was on vibrate, so it correctly stayed silent — which is the specced behaviour, not an unverified one |
+| 8 | One indeterminate indicator | **PASS.** The splash AVD, and nothing else. Every load is a skeleton |
+| 8b | Scanning visibly works | **PARTIAL.** The arcs animate (one `rememberInfiniteTransition`, phase read inside the `Canvas` draw lambda). Verified by construction and by consecutive screenshots; **Layout Inspector recomposition counts were not captured** |
+| 9 | No layout shift on load | **PASS by construction.** `TicketCardSkeleton` occupies the real card's bounds; list skeletons use the last known row count |
+| 10 | Responsive | **PASS.** Walked at 320dp, 411dp and 200% font scale on the phone. Nothing clips or overlaps; two labels ellipsise gracefully at 200%, which is the designed degradation |
+| 11 | 60 fps | **PASS.** `dumpsys gfxinfo` over scanning + the morph: 1423 frames, **18 janky (1.26%)**, 50th 7ms / 90th 9ms / 95th 10ms. Debug build |
+| 12 | Icon and splash | **PARTIAL.** Launcher icon verified on the phone's home screen in Samsung's squircle mask. **Not** checked in circle or teardrop masks, in themed-icon mode, or as a captured splash frame |
+| 13 | Weight | **PASS.** `assembleRelease` = **12.41 MB**, against a 14.5 MB budget and a ~12 MB baseline |
+| 14 | Blur degrades | **N/A — the blur was removed.** See below |
+| 15 | First run is one flow | **PASS.** Fresh install → four pager steps → session list, no screen cut that is not a page turn. "No soy X" still reaches the same form |
+| 16 | History is reachable | **PASS by construction.** Avatar → Mi asistencia, two taps. Not walked on device |
+| 17 | No backend was touched | **PASS.** `git diff --stat supabase/` empty |
+| 18 | Everything presses | **PASS by construction.** One `Modifier.bukPressable`; disabled surfaces pass `enabled = false` and do not scale; every interactive surface carries `BukMinTouchTarget` |
+| 19 | TalkBack | **NOT RUN.** The live region, the morph's outcome description, and `clearAndSetSemantics` on the footer and decorative canvases are all in the code and none of it was exercised with a screen reader |
+
+### The live check-in, and the gate that is still shut
+
+**`abrir_instancia` does not need `psql`.** It is one of the nine functions granted to `anon`,
+because the host app calls it from the device — so seeding an instance with the known-vector
+key is a `curl` against the same PostgREST surface the app uses:
+
+```bash
+curl -s -X POST "$SUPABASE_URL/rest/v1/rpc/abrir_instancia" \
+  -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -H "Content-Type: application/json" \
+  -d '{"p_instancia_id": 2, "p_key_hex": "000102030405060708090a0b0c0d0e0f"}'
+```
+
+With instance 2 opened that way and `tools/mac-ble/beacon --instancia 2` running, the phone
+walked SCANNING → READY → tap → the morph → SUCCESS, and the row landed. Both directions of
+the code path are now covered on this hardware: a **valid** code writes a row, and a code
+derived from the wrong key is refused as `CODIGO_INVALIDO` and rendered as "Ese código ya no
+sirve" with a working recovery action.
+
+**`rpc_test.sql` passes: 19 / 0 / TODO VERDE.** It needed the database password to be reset in
+the Supabase dashboard first — the value in `.env` was correct but the stored one had drifted.
+Worth knowing for next time: **a pooler password reset takes a few seconds to propagate**, and
+during that window `psql` still answers `FATAL: password authentication failed for user
+"postgres"` even with the right password. Two attempts seconds apart gave different results.
+
+`.env` (gitignored, mode 600) now holds the operator credentials so this does not have to be
+re-typed. **It must never be committed** — `.gitignore` has an explicit `.env` entry and
+`git check-ignore` was verified against it.
+
+### Five defects the device found that a compile never would
+
+1. **`Modifier.blur` blurred the label, not the backdrop.** The ticket's state pill was
+   specced as a glass surface. Compose has no backdrop-blur modifier — `Modifier.blur` blurs
+   the element's *own* content — so on the A54 (API 36, well past the API 31 gate) the pill
+   rendered as an unreadable smear. Removed. The pill ships as the translucent solid the spec
+   required it to be designed as first, and unit 9's "two glass surfaces" is really "two
+   translucent surfaces". Criterion 14 is moot rather than passed.
+2. **`aapt2` silently truncates resource strings over 32 KB.** The launcher-icon and splash
+   path data, serialised at full float precision, exceeded it — the build emitted
+   `string too large to encode using UTF-8 written instead as 'STRING_TOO_LARGE'` as a
+   *non-fatal* line and would have shipped an empty icon. Rounding coordinates to two decimals
+   (past visible at 108dp) cut the longest path from 38 KB to 15 KB.
+3. **The ticket's state pill did not update after a successful check-in.** `instancia` is
+   loaded once in `bind()`, so the card sat there still reading "Sin inscripción" directly
+   above a screen saying the attendance had registered. The pill exists to carry state and it
+   has to carry the state that just changed; `cargarInstancia()` now re-runs on `Ok` /
+   `YaRegistrado`. Verified on the phone: the session list afterwards shows that row with the
+   `BukSuccessInk` edge, an "Asistencia marcada" chip, and no longer tappable.
+4. **`responsive()` crashed the check-in screen on a narrow display.** It was written as
+   `candidate.coerceIn(min, minOf(max, screenWidth))`, and on a screen narrower than `min`
+   that is an inverted range — `coerceIn` throws. `FATAL EXCEPTION: Cannot coerce value to an
+   empty range: maximum 114.0.dp is less than minimum 176.0.dp`, caught in the crash buffer
+   during the width sweep. A floor wider than the screen is not a floor, it is a
+   contradiction; the upper bound is now computed first and the floor clamped under it.
+5. **The launcher icon was drawn at the full 66dp safe zone and looked wrong on the
+   launcher.** 66dp is the largest content guaranteed not to be *cut off*; it is not the
+   largest content that should be *drawn*. At 66dp the mark filled the safe square, broke the
+   safe circle at its corners, and sat visibly tighter in its mask than every neighbouring
+   icon. Refitted to 52dp, inside the 60dp keyline. The splash had the mirror-image bug — a
+   3.36:1 lockup scaled to the full 288dp width would have had both ends cut by the circular
+   mask — and is now fitted to the inscribed circle with 12% margin.
+
+### Deviations from spec 04, and why
+
+| Deviation | Why |
+| --- | --- |
+| **Merriweather ships as a static Bold, not a variable font** | The variable file subset to the same glyph set is 462 KB against 187 KB for the single instance, and the type scale never asks Merriweather for a weight other than Bold. 275 KB of unreachable weights is dead payload, not a trade-off. Inter *is* variable — it uses four weights |
+| **`CheckInButton.kt` and `SuccessCheck.kt` are deleted, not rewritten** | The spec's manifest keeps them either side of a new `CheckInMorph.kt`. But the requirement is "one continuous object, never two composables swapped", and leaving two swappable composables in place is an invitation to swap them. One file now owns the whole Ready → Enviando → Success container |
+| **The wordmark is a vector drawable, not an `ImageVector`** | The splash needs an `AnimatedVectorDrawable`, which is XML-only, so the path data has to exist as XML regardless. A second 37 KB copy as Kotlin string constants to satisfy "no baked fill" would be worse — and the fill is never rendered, because every call site draws it through `Icon`, which tints |
+| **Two icons are hand-declared `ImageVector`s** | material3 1.4.0 no longer brings `material-icons-core`, and the app needs exactly two glyphs (a chevron and a back arrow). Adding the artifact for two glyphs is the dependency this project exists to refuse |
+| **`app/res/values/colors.xml` holds two hex values** | A launcher icon and a splash window are inflated by the framework before any Compose theme exists and cannot read `Color.kt`. Criterion 2 greps `*.kt` and still passes; this is the minimum duplication the platform forces |
+| **Onboarding takes the name step as a slot parameter** | `:features:onboarding` cannot see `NameEntryViewModel`, which lives in `:app`. `:app` passes the step in. The alternative — a second copy of the call that issues an identity — is the thing unit 11 explicitly forbids |
+| **The confirmation tone is a generated WAV, not a sourced `.ogg`** | 13 KB, two notes, generated from a formula. Sourcing a 15 KB audio file of unverifiable provenance to save 2 KB is a bad trade |
+
+### The Lottie animations, and where they came from
+
+Three bundled JSONs, 27 KB total, all **vector-only with no gradients and no bitmaps** —
+which is what makes the runtime recolouring total. All three are **Lottie Simple License**:
+commercial use, modification, and distribution inside a product are permitted, and attribution
+is not required.
+
+| Page | Animation | Author | Size |
+| --- | --- | --- | --- |
+| "Tu asistencia, en un toque" | Double Tap Touch Gesture | J | 2.1 KB |
+| "Tu teléfono encuentra a tu anfitrión" | bluetooth connecting | daizy | 2.0 KB |
+| "Por ahora, registramos tu entrada" | Checked | Priya Muda Wineko | 1.5 KB |
+
+The first choice for page 2 — a more literal "Bluetooth searching" — was **rejected after
+inspection**: it is five image layers wrapping two PNGs, so `LottieDynamicProperties` cannot
+touch its colour and it would have imported palette from a file. Every candidate was
+downloaded and filtered for vector-only content before any of them was picked. Recolouring is
+per-layer rather than a blanket `KeyPath("**")` because two of the three carry a knocked-out
+glyph that has to stay light against the shape behind it.
+
+### Not verified on this hardware — do not claim otherwise
+
+- **`MiAsistenciaScreen`, the profile sheet and the avatar picker.** Built and compiled, never
+  opened on the phone.
+- **The splash animation.** Wired and declared; no frame captured.
+- **TalkBack.** No screen-reader pass was made.
+- **Layout Inspector recomposition counts.** The zero-recomposition claims rest on where the
+  reads are written (inside `graphicsLayer` / `drawWithCache` / `Canvas` lambdas), not on a
+  measurement.
+- **Launcher icon in circle and teardrop masks, and themed-icon mode.** Only Samsung's
+  squircle was seen.
+- **The splash animation itself.** `installSplashScreen()` is wired and the AVD is declared,
+  but no splash frame was captured — it is ~900 ms and the screencap never landed inside it.
+
 ## Limitations to state out loud in the presentation
 
 Disclosed by you they read as rigour; discovered by a reviewer they read as gaps.
@@ -346,8 +632,8 @@ Disclosed by you they read as rigour; discovered by a reviewer they read as gaps
 
 Nothing is required for the demo. If the work continues:
 
-1. **Design pass.** Session 3 was explicitly functionality-first. The session list, roster,
-   and manual-registration screens are plain Material and have had no design attention.
+1. **Execute `specs/04-design.md`.** Specced in session 4, eleven units, not started. It
+   fixes three measured accessibility failures alongside the visual work.
 2. **Check-out.** Still unsolved and still out of scope — see the open question below.
 3. **Auth.** The single change that closes the identity hole. One argument per RPC.
 
@@ -355,6 +641,11 @@ Nothing is required for the demo. If the work continues:
 
 | Decision | Rationale |
 | --- | --- |
+| **Material 3 Expressive is not adopted** | `MaterialShapes` and `LoadingIndicator` were reverted to *experimental* in material3 1.5.0-alpha19, and `MotionScheme` graduated only on the 1.5 alpha branch. The project is on 1.4.0 stable via BOM 2026.06.01. Motion is built on `androidx.compose.animation.core.spring`, which is stable foundation API, with a local token object. Chasing the expressive APIs would mean bumping the BOM on a working build to buy nothing this design needs. Re-check when 1.5.0 goes stable. |
+| **The ticket gradient runs deep, not light** | It ran `BukBlue → lighter`, and that direction cannot be made legible: pure white on the old light end measures 4.27:1, below the 4.5:1 minimum, and white at 92% alpha still only reaches 4.44:1. Inverting to `BukBlue → BukBlueDeep` makes `BukBlue` the lightest point of the card — the worst case — and every white level clears. This is a legibility fix that happens to look better, not a taste change. |
+| **Fonts are bundled and subset, not downloaded** | Variable fonts do not work through the Google Fonts downloadable provider (issue 223262013), and downloadable fonts need Play Services plus a fallback chain that flashes on first launch. A flash of the wrong typeface at launch is precisely the seam this product exists to remove. ~370 KB for Inter Variable + Merriweather at latin+latin-ext. |
+| **`BukSuccess` never carries text or an icon** | At `#2BAB51` it measures 2.98:1 on white and 2.43:1 on the page field — it fails the 4.5:1 text threshold *and* the 3:1 graphic threshold. It stays in `Color.kt` as one of the four authoritative brand values but is demoted to a decorative accent; `BukSuccessInk` carries all success meaning. |
+| **The avatar is on-device only** | A Supabase Storage bucket means new RLS policies, an upload path in `:core:data`, and an image-loading dependency — backend work inside a design session, on a product with no auth to scope a bucket against. `PickVisualMedia` into `filesDir` needs no permission and no server. It does not survive a reinstall, which is the accepted cost. |
 | `AdvertisementPayload` lives in `:domain`, not `:core:ble` | Spec 02's file manifest put the class in `:core:ble` but its **test** in `domain/src/test/`, which cannot both be true. The payload is pure format over `java.util.UUID` — JVM stdlib, not Android — so putting it in `:domain` satisfies the test location, keeps `:domain` free of `android.*`, and makes the wire format unit-testable without a device. `:core:ble` wraps it in `ParcelUuid` at the one call site that needs to. |
 | `:core:ble` returns typed results and never a string | It would otherwise need `:core:designsystem` for `R.string`, coupling the radio to the theme. Feature modules map `BleStatus` to copy, which keeps the one-`strings.xml` rule intact. The foreground-service notification text is passed in as an Intent extra for the same reason. |
 | `BleAdvertiser` uses `flow` + `suspendCancellableCoroutine`, not `callbackFlow` | Each rotation window is one request/response against `AdvertiseCallback`, not a stream. `code-standards.md` asks for `callbackFlow` + `awaitClose`; the rule it protects — never leak a registration — is kept by the `finally`, in a third of the code. `BleScanner` is a genuine stream and does use `callbackFlow`. |
@@ -395,13 +686,11 @@ Nothing is required for the demo. If the work continues:
 
 ## Open questions
 
-- **The mockup's page background is more saturated than `BukBackground`.** The mockups
-  render the field as a clearly periwinkle tone; `#F7F9FF` is near-white and reads that
-  way on device. The four brand values are stated as authoritative in three documents, so
-  the token was implemented as specified rather than retuned to match a mockup render.
-  If the mockup is the authority here, it is a one-line change in `Color.kt` — a derived
-  token such as `BukBlue.copy(alpha = 0.08f).compositeOver(BukBackground)` mapped to
-  `background` gets there without introducing a fifth hex. **Needs a decision.**
+- ~~**The mockup's page background is more saturated than `BukBackground`.**~~
+  **Resolved 2026-07-26 (session 4):** the mockup is the authority. The page becomes
+  `BukField = BukBlue.copy(alpha = 0.10f).compositeOver(BukBackground)` ≈ `#E3E8F6`.
+  `BukBackground` stays `#F7F9FF` as a brand value; no fifth hex is introduced. Specced in
+  `specs/04-design.md` unit 0.
 
 - **Automatic check-out is unsolved.** Users forget to mark "Me retiro". Out of scope
   for the demo; check-in is the priority. Candidate approaches if revisited: geofence

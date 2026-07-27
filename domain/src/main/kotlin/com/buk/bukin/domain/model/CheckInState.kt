@@ -62,6 +62,18 @@ enum class CheckInErrorReason {
      */
     CODE_REJECTED,
 
+    /**
+     * The server has refused the code more than once in a row.
+     *
+     * A single rejection is almost always a code that went stale while the screen sat
+     * idle, and "we'll look for the current one" is the truth. Repeated rejections are
+     * not that: they mean the signal in the room does not match what the server holds for
+     * this session — a host that reopened the room and rotated its key, or a beacon for a
+     * different session entirely. Retrying cannot fix either, so the app stops promising
+     * it can and names the way out instead.
+     */
+    CODE_REJECTED_REPETIDO,
+
     /** The server says this session's hour has passed, or has not arrived. */
     OUT_OF_WINDOW,
 }

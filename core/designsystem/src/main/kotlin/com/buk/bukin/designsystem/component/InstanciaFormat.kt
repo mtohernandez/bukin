@@ -28,6 +28,16 @@ internal object InstanciaFormat {
     private val fecha = DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", locale)
     private val hora = DateTimeFormatter.ofPattern("h:mm a", locale)
 
+    /**
+     * The ticket's two display figures, without the meridiem.
+     *
+     * At 34sp "7:30 p. m." is close to twice the rendered width of the bare time, and the
+     * two blocks squeezed each other until the start time clipped on a 411dp phone. The
+     * stub line directly beneath carries a full "Entrada desde 5:50 p. m.", so the hour is
+     * never actually ambiguous.
+     */
+    private val horaCorta = DateTimeFormatter.ofPattern("h:mm", locale)
+
     /** How early the doors open, matching `ventana_activa` in the migrations. */
     private const val CHECK_IN_ABRE_MINUTOS = 10L
 
@@ -36,8 +46,14 @@ internal object InstanciaFormat {
 
     fun hora(instant: Instant, zone: ZoneId): String = hora.format(instant.atZone(zone))
 
+    fun horaCorta(instant: Instant, zone: ZoneId): String = horaCorta.format(instant.atZone(zone))
+
     fun horaCheckIn(inicio: Instant, zone: ZoneId): String =
         hora(inicio.minusSeconds(CHECK_IN_ABRE_MINUTOS * 60), zone)
+
+    /** The same, short-form, for the ticket stub where the state pill wants the width. */
+    fun horaCheckInCorta(inicio: Instant, zone: ZoneId): String =
+        horaCorta(inicio.minusSeconds(CHECK_IN_ABRE_MINUTOS * 60), zone)
 }
 
 /** "2 horas", "90 minutos" — whichever reads naturally for the duration given. */

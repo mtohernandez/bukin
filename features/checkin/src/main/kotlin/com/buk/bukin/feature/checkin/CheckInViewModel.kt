@@ -65,6 +65,14 @@ class CheckInViewModel(application: Application) : AndroidViewModel(application)
     private val retries = MutableStateFlow(0)
 
     /**
+     * Consecutive `CODIGO_INVALIDO` answers.
+     *
+     * Reset by a success and by leaving the screen. Not reset by a retry — the whole point
+     * is to notice that retrying is not working.
+     */
+    private var rechazosSeguidos = 0
+
+    /**
      * The session being checked into, once loaded. Its `activa` flag is computed by the
      * server from the clock, so the app and the RPC cannot disagree about whether the
      * button should have been offered at all.
@@ -202,10 +210,29 @@ class CheckInViewModel(application: Application) : AndroidViewModel(application)
                 // surface an error — the assessment calls this out explicitly.
                 ResultadoConfirmacion.Ok,
                 ResultadoConfirmacion.YaRegistrado,
-                -> CheckInState.Success
+                -> {
+                    rechazosSeguidos = 0
+                    // Re-read the row so the ticket's state pill flips to "Asistencia
+                    // marcada". It is loaded once at bind, so without this the card sits
+                    // there still claiming the pre-check-in state directly above a screen
+                    // saying the attendance registered — observed on the phone. The pill
+                    // exists to carry state; it has to carry the state that just changed.
+                    cargarInstancia()
+                    CheckInState.Success
+                }
 
-                ResultadoConfirmacion.CodigoInvalido ->
-                    CheckInState.Error(CheckInErrorReason.CODE_REJECTED)
+                ResultadoConfirmacion.CodigoInvalido -> {
+                    // Never resubmit the bytes the server just refused. Without this the
+                    // retry can hand over the identical code and fail identically, which
+                    // is what makes a rejection look unrecoverable even when it is not.
+                    latestSighting = null
+                    rechazosSeguidos += 1
+                    if (rechazosSeguidos >= RECHAZOS_ANTES_DE_ESCALAR) {
+                        CheckInState.Error(CheckInErrorReason.CODE_REJECTED_REPETIDO)
+                    } else {
+                        CheckInState.Error(CheckInErrorReason.CODE_REJECTED)
+                    }
+                }
 
                 ResultadoConfirmacion.FueraDeVentana ->
                     CheckInState.Error(CheckInErrorReason.OUT_OF_WINDOW)
@@ -255,6 +282,12 @@ class CheckInViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private companion object {
+        /**
+         * One rejection is a stale code and the app says so. Two in a row is a signal that
+         * does not match the session, and no amount of looking again will change it.
+         */
+        const val RECHAZOS_ANTES_DE_ESCALAR = 2
+
         /**
          * How long the host may go unheard before the button locks again.
          *

@@ -10,16 +10,21 @@ import androidx.compose.ui.graphics.Color
  * not, and a dark variant of a ticket that has to read as the same object in every photo
  * of the demo is a liability rather than a feature.
  *
+ * The page is [BukField], not [BukBackground]. That closed a question open since session 1:
+ * every mockup renders a periwinkle field, it gives the blue ticket something to sit on
+ * instead of floating on white, and it introduces no fifth hex — it is `BukBlue` at 10%
+ * over `BukBackground`.
+ *
  * System bar icons are forced dark in `MainActivity` via `enableEdgeToEdge`, which owns
  * that decision; setting it here as well would fight it.
  */
 private val BukColorScheme = lightColorScheme(
     primary = BukBlue,
     onPrimary = Color.White,
-    primaryContainer = BukBlueLight,
+    primaryContainer = BukBlueDeep,
     onPrimaryContainer = Color.White,
 
-    background = BukBackground,
+    background = BukField,
     onBackground = BukInk,
 
     surface = BukSurface,
@@ -27,7 +32,9 @@ private val BukColorScheme = lightColorScheme(
     surfaceVariant = BukSurface,
     onSurfaceVariant = BukInkMuted,
 
-    tertiary = BukSuccess,
+    // All success meaning. `BukSuccess` itself fails both the text and the graphic
+    // threshold and never reaches the scheme.
+    tertiary = BukSuccessInk,
     onTertiary = Color.White,
 
     outline = BukBorder,

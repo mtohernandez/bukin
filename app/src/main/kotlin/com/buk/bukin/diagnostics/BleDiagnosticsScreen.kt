@@ -37,6 +37,7 @@ import com.buk.bukin.domain.crypto.RotatingCode
 import com.buk.bukin.ble.HostState
 import com.buk.bukin.ble.ScanEvent
 import com.buk.bukin.designsystem.R
+import com.buk.bukin.designsystem.component.BukScreen
 import com.buk.bukin.designsystem.theme.BukInTheme
 import com.buk.bukin.designsystem.theme.BukInkMuted
 import com.buk.bukin.designsystem.theme.BukSpacing
@@ -107,20 +108,11 @@ fun BleDiagnosticsRoute(
     val clockOffset by viewModel.clockOffsetSeconds.collectAsStateWithLifecycle()
     val sightings by viewModel.sightings.collectAsStateWithLifecycle()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .safeDrawingPadding()
-            .padding(horizontal = BukSpacing.gutter),
+    BukScreen(
+        modifier = modifier,
+        title = stringResource(R.string.diag_title),
+        onBack = onBack,
     ) {
-        Text(
-            text = stringResource(R.string.diag_title),
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Spacer(Modifier.height(BukSpacing.md))
-
         DiagRow(stringResource(R.string.diag_adapter), viewModel.hasAdapter.yesNo())
         DiagRow(stringResource(R.string.diag_enabled), viewModel.isEnabled.yesNo())
         DiagRow(stringResource(R.string.diag_can_advertise), viewModel.canAdvertise.yesNo())
@@ -177,10 +169,6 @@ fun BleDiagnosticsRoute(
             }
         }
 
-        TextButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text(stringResource(R.string.host_back))
-        }
-        Spacer(Modifier.height(BukSpacing.md))
     }
 }
 
@@ -233,7 +221,7 @@ private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 @Composable
 private fun BleDiagnosticsPreview() {
     BukInTheme {
-        Column(Modifier.padding(BukSpacing.gutter)) {
+        Column(Modifier.padding(BukSpacing.lg)) {
             DiagRow("Adaptador", "sí")
             DiagRow("BleStatus", "Ready")
             DiagRow("BLUETOOTH_SCAN", "sí")

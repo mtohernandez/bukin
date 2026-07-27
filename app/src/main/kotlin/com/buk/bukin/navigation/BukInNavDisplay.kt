@@ -1,5 +1,9 @@
 package com.buk.bukin.navigation
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,14 +23,16 @@ import com.buk.bukin.feature.host.ManualRegistrationRoute
 import com.buk.bukin.feature.host.RosterRoute
 import com.buk.bukin.feature.onboarding.OnboardingRoute
 import com.buk.bukin.ui.IdentityPreferences
+import com.buk.bukin.ui.MiAsistenciaRoute
 import com.buk.bukin.ui.NameEntryRoute
+import com.buk.bukin.ui.NombreStep
 import com.buk.bukin.ui.RolePickerScreen
 import com.buk.bukin.ui.SessionPickerRoute
 
 /**
- * Root navigation. Glue only — every screen is owned by its feature module, except the two
- * that both roles need (name entry and the session list), which live in `:app` for the same
- * reason the role picker does: features may never depend on each other.
+ * Root navigation. Glue only — every screen is owned by its feature module, except the ones
+ * both roles need (the name form, the session list, the attendance history), which live in
+ * `:app` for the same reason the role picker does: features may never depend on each other.
  *
  * @param startKey where the app opens, decided once in `MainActivity`.
  */
@@ -41,17 +47,51 @@ fun BukInNavDisplay(
     // Read once and kept here so re-entering the name screen updates every downstream
     // screen without each of them touching SharedPreferences on its own.
     var identidad by remember { mutableStateOf(IdentityPreferences(context).colaborador) }
+    var avatarPath by remember { mutableStateOf(IdentityPreferences(context).avatarPath) }
 
     NavDisplay(
         backStack = backStack,
         onBack = { backStack.removeLastOrNull() },
         modifier = modifier,
+        // Shared axis. Forward slides in from the trailing edge and scales up a touch;
+        // back reverses it. **No fades** — `fadeIn`/`fadeOut` are banned in this codebase,
+        // and a cross-dissolve between two screens is the single clearest tell that a
+        // transition was picked from a default rather than designed.
+        // Shared axis X, travelling the **full** width. An earlier version slid a fifth of
+        // the width and scaled: the outgoing screen was still mostly on-screen when it was
+        // cut, which reads as content vanishing rather than moving. Still no fade — a
+        // cross-dissolve between screens is the clearest tell of a default transition.
+        transitionSpec = {
+            slideInHorizontally(tween(SHARED_AXIS_MS)) { it }
+                .togetherWith(slideOutHorizontally(tween(SHARED_AXIS_MS)) { -it / 3 })
+        },
+        popTransitionSpec = {
+            slideInHorizontally(tween(SHARED_AXIS_MS)) { -it / 3 }
+                .togetherWith(slideOutHorizontally(tween(SHARED_AXIS_MS)) { it })
+        },
+        // The back gesture drives the same motion under the user's finger.
+        predictivePopTransitionSpec = {
+            slideInHorizontally(tween(SHARED_AXIS_MS)) { -it / 3 }
+                .togetherWith(slideOutHorizontally(tween(SHARED_AXIS_MS)) { it })
+        },
         entryProvider = entryProvider {
             entry<BukInKey.Onboarding> {
-                // Replace rather than push: onboarding is shown once, and backing into it
-                // from what follows would be asking the same thing twice.
+                // Four steps, the last of which is the name. Replace rather than push:
+                // onboarding is shown once, and backing into it from what follows would be
+                // asking the same thing twice.
                 OnboardingRoute(
-                    onFinished = { backStack.replaceAllWith(BukInKey.NameEntry) },
+                    onFinished = { backStack.replaceAllWith(BukInKey.RolePicker) },
+                    // `:app` owns identity, so it supplies the step. This is what lets the
+                    // name form be one composable with two hosts without a feature module
+                    // reaching into the app module.
+                    nameStep = { onDone ->
+                        NombreStep(
+                            onIdentified = { colaborador ->
+                                identidad = colaborador
+                                onDone()
+                            },
+                        )
+                    },
                 )
             }
 
@@ -59,16 +99,15 @@ fun BukInNavDisplay(
                 NameEntryRoute(
                     onIdentified = { colaborador ->
                         identidad = colaborador
-                        backStack.replaceAllWith(BukInKey.RolePicker)
+                        backStack.removeLastOrNull()
                     },
+                    onBack = { backStack.removeLastOrNull() },
                 )
             }
 
             entry<BukInKey.RolePicker> {
                 RolePickerScreen(
-                    onCollaborator = {
-                        backStack.add(BukInKey.SessionPicker(isHost = false))
-                    },
+                    onCollaborator = { backStack.add(BukInKey.SessionPicker(isHost = false)) },
                     onHost = { backStack.add(BukInKey.SessionPicker(isHost = true)) },
                     onDiagnostics = { backStack.add(BukInKey.Diagnostics) },
                 )
@@ -78,10 +117,20 @@ fun BukInNavDisplay(
                 SessionPickerRoute(
                     isHost = key.isHost,
                     nombre = identidad?.nombre.orEmpty(),
+                    avatarPath = avatarPath,
                     onOpenCheckIn = { backStack.add(BukInKey.CheckIn(it)) },
                     onOpenHost = { backStack.add(BukInKey.Host(it)) },
                     onChangeName = { backStack.add(BukInKey.NameEntry) },
+                    onOpenAsistencia = { backStack.add(BukInKey.MiAsistencia) },
+                    onAvatarPicked = { path ->
+                        IdentityPreferences(context).avatarPath = path
+                        avatarPath = path
+                    },
                 )
+            }
+
+            entry<BukInKey.MiAsistencia> {
+                MiAsistenciaRoute(onBack = { backStack.removeLastOrNull() })
             }
 
             entry<BukInKey.CheckIn> { key ->
@@ -143,3 +192,5 @@ private fun <T : NavKey> NavBackStack<T>.replaceAllWith(key: T) {
     clear()
     add(key)
 }
+
+private const val SHARED_AXIS_MS = 320

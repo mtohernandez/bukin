@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    900 ms total, inside the 1000 ms the splash API allows. Nothing is held artificially:
+    MainActivity reads two SharedPreferences values synchronously and has nothing to wait
+    for, so the splash is not kept up with an OnPreDrawListener to look busy.
+-->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/splash_wordmark">
+
+    <target android:name="buk_clip">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:animation">
+            <objectAnimator
+                android:propertyName="pathData"
+                android:valueFrom="M94.55,173.82L94.55,173.82L94.55,258.18L94.55,258.18Z"
+                android:valueTo="M94.55,173.82L240.63,173.82L240.63,258.18L94.55,258.18Z"
+                android:valueType="pathType"
+                android:duration="450"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+
+    <target android:name="in_clip">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:animation">
+            <objectAnimator
+                android:propertyName="pathData"
+                android:valueFrom="M250.71,173.82L250.71,173.82L250.71,258.18L250.71,258.18Z"
+                android:valueTo="M250.71,173.82L337.45,173.82L337.45,258.18L250.71,258.18Z"
+                android:valueType="pathType"
+                android:startOffset="400"
+                android:duration="500"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+</animated-vector>

@@ -17,6 +17,12 @@ junit = "4.13.2"
 supabase = "3.6.0"
 ktor = "3.4.3"
 
+# The two dependencies the design session adds, and the only two.
+# lottie-compose plays the three bundled onboarding animations; core-splashscreen backports
+# the API 31 splash screen to minSdk 26 so first launch is one continuous surface.
+lottie = "6.7.1"
+coreSplashscreen = "1.2.0"
+
 compileSdk = "36"
 targetSdk = "36"
 minSdk = "26"
@@ -44,6 +50,9 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 supabase-bom = { module = "io.github.jan-tennert.supabase:bom", version.ref = "supabase" }
 supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+
+lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottie" }
+androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "coreSplashscreen" }
 
 junit = { module = "junit:junit", version.ref = "junit" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }

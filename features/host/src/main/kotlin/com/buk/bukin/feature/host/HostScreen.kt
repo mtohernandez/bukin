@@ -10,20 +10,17 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -33,6 +30,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -43,12 +42,19 @@ import com.buk.bukin.ble.BleCapability
 import com.buk.bukin.ble.BleStatus
 import com.buk.bukin.ble.HostState
 import com.buk.bukin.designsystem.R
-import com.buk.bukin.designsystem.component.BukInFooter
+import com.buk.bukin.designsystem.component.BukMinTouchTarget
+import com.buk.bukin.designsystem.component.BukScreen
 import com.buk.bukin.designsystem.component.NoticeCard
-import com.buk.bukin.designsystem.theme.BukInTheme
-import com.buk.bukin.designsystem.theme.BukSpacing
+import com.buk.bukin.designsystem.component.NoticeSeverity
+import com.buk.bukin.designsystem.component.bukPressable
 import com.buk.bukin.designsystem.component.instanciaSubtitulo
+import com.buk.bukin.designsystem.theme.BukBlue
+import com.buk.bukin.designsystem.theme.BukInTheme
+import com.buk.bukin.designsystem.theme.BukInk
 import com.buk.bukin.designsystem.theme.BukInkMuted
+import com.buk.bukin.designsystem.theme.BukShape
+import com.buk.bukin.designsystem.theme.BukSpacing
+import com.buk.bukin.designsystem.theme.BukSurface
 import kotlinx.coroutines.delay
 
 @Composable
@@ -118,9 +124,12 @@ fun HostRoute(
 }
 
 /**
- * The operator surface. Plain on purpose — the collaborator screen is the one that gets the
- * design care, and a host wants the code and the state legible from arm's length, not
- * beautiful.
+ * The operator surface.
+ *
+ * Plainer than the collaborator screen on purpose — a host wants the code and the state
+ * legible from arm's length, not beautiful. It still uses the same scaffold, the same type
+ * scale and the same tokens, because "plain" was previously being achieved by rendering
+ * half its type in undeclared Material defaults, which is a different thing entirely.
  */
 @Composable
 fun HostScreen(
@@ -133,23 +142,12 @@ fun HostScreen(
     onRecover: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .safeDrawingPadding()
-            .padding(horizontal = BukSpacing.gutter),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    BukScreen(
+        modifier = modifier,
+        title = uiState.instancia?.cursoNombre ?: stringResource(R.string.host_title),
+        onBack = onBack,
     ) {
-        Spacer(Modifier.height(BukSpacing.lg))
-        Text(
-            text = uiState.instancia?.cursoNombre ?: stringResource(R.string.host_title),
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-        )
         uiState.instancia?.let {
-            Spacer(Modifier.height(BukSpacing.xs))
             Text(
                 text = instanciaSubtitulo(it),
                 style = MaterialTheme.typography.bodySmall,
@@ -170,6 +168,11 @@ fun HostScreen(
                     title = stringResource(blocked.first),
                     body = stringResource(blocked.second),
                     // CannotAdvertise has no way out: this chipset will never broadcast.
+                    severity = if (blocked.third == null) {
+                        NoticeSeverity.Blocking
+                    } else {
+                        NoticeSeverity.Informational
+                    },
                     actionLabel = blocked.third?.let { stringResource(it) },
                     onAction = blocked.third?.let { { onRecover() } },
                 )
@@ -187,17 +190,51 @@ fun HostScreen(
             }
         }
 
-        // The roster and manual registration are useful before the room opens too — a host
-        // checking who is enrolled, or registering someone who arrived early.
-        Row(horizontalArrangement = Arrangement.spacedBy(BukSpacing.sm)) {
-            TextButton(onClick = onOpenRoster) { Text(stringResource(R.string.roster_open)) }
-            TextButton(onClick = onOpenManual) { Text(stringResource(R.string.manual_open)) }
+        // Useful before the room opens too — a host checking who is enrolled, or
+        // registering someone who arrived early.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(BukSpacing.sm2),
+        ) {
+            SecondaryAction(stringResource(R.string.roster_open), onOpenRoster, Modifier.weight(1f))
+            SecondaryAction(stringResource(R.string.manual_open), onOpenManual, Modifier.weight(1f))
         }
-        TextButton(onClick = onBack) {
-            Text(stringResource(R.string.host_back), style = MaterialTheme.typography.labelLarge)
-        }
-        BukInFooter()
         Spacer(Modifier.height(BukSpacing.md))
+    }
+}
+
+@Composable
+private fun SecondaryAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .heightIn(min = BukMinTouchTarget)
+            .clip(BukShape.lg)
+            .background(BukSurface)
+            .bukPressable(onClick = onClick, onClickLabel = label)
+            .padding(horizontal = BukSpacing.md, vertical = BukSpacing.sm2),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = BukBlue,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun PrimaryAction(label: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .heightIn(min = BukMinTouchTarget)
+            .clip(BukShape.lg)
+            .background(BukBlue)
+            .bukPressable(onClick = onClick, onClickLabel = label)
+            .padding(horizontal = BukSpacing.lg, vertical = BukSpacing.sm2),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = label, style = MaterialTheme.typography.labelLarge, color = Color.White)
     }
 }
 
@@ -208,52 +245,57 @@ private fun SessionCentre(uiState: HostUiState, onStart: () -> Unit, onStop: () 
             Text(
                 text = stringResource(R.string.host_idle_body),
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = BukInk,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(BukSpacing.lg))
-            Button(onClick = onStart) { Text(stringResource(R.string.host_start)) }
+            PrimaryAction(stringResource(R.string.host_start), onStart)
         }
 
         HostState.Starting -> Text(
             text = stringResource(R.string.host_starting),
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = BukInk,
         )
 
         is HostState.Broadcasting -> {
             Text(
                 text = stringResource(R.string.host_broadcasting),
                 style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Spacer(Modifier.height(BukSpacing.lg))
-
-            Text(
-                text = stringResource(R.string.host_instancia_label) + ": ${session.instanciaId}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = BukInk,
             )
             Spacer(Modifier.height(BukSpacing.sm))
 
+            // A format argument, not `label + ": $id"` assembled in Kotlin. That built a
+            // sentence in code, which code-standards.md forbids for exactly this reason.
+            Text(
+                text = stringResource(R.string.host_instancia_valor, session.instanciaId),
+                style = MaterialTheme.typography.bodySmall,
+                color = BukInkMuted,
+            )
+
+            Spacer(Modifier.height(BukSpacing.lg))
             Text(
                 text = stringResource(R.string.host_code_label),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = BukInkMuted,
             )
             // The whole point of this screen on demo day: this string must equal what
             // scan.swift prints on the Mac.
             Text(
                 text = session.code.toHex(),
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = BukBlue,
             )
             Spacer(Modifier.height(BukSpacing.sm))
 
             Text(
-                text = stringResource(R.string.host_window_label, rememberCountdown(session.windowEndsAtEpochMillis)),
+                text = stringResource(
+                    R.string.host_window_label,
+                    rememberCountdown(session.windowEndsAtEpochMillis),
+                ),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = BukInkMuted,
             )
             Spacer(Modifier.height(BukSpacing.lg))
 
@@ -273,11 +315,11 @@ private fun SessionCentre(uiState: HostUiState, onStart: () -> Unit, onStop: () 
             Text(
                 text = stringResource(R.string.host_keep_open),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = BukInkMuted,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(BukSpacing.md))
-            Button(onClick = onStop) { Text(stringResource(R.string.host_stop)) }
+            SecondaryAction(stringResource(R.string.host_stop), onStop)
         }
 
         is HostState.Failed -> {
@@ -337,11 +379,11 @@ private fun Context.findActivity(): Activity? = generateSequence(this) {
     (it as? ContextWrapper)?.baseContext
 }.filterIsInstance<Activity>().firstOrNull()
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, backgroundColor = 0xFFE3E8F6)
 @Composable
 private fun HostIdlePreview() = PreviewHost(HostUiState())
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, backgroundColor = 0xFFE3E8F6)
 @Composable
 private fun HostBroadcastingPreview() = PreviewHost(
     HostUiState(
@@ -355,9 +397,10 @@ private fun HostBroadcastingPreview() = PreviewHost(
 )
 
 /** The one host failure a user cannot fix. Renders without an action button on purpose. */
-@Preview(showBackground = true)
+@Preview(showBackground = true, backgroundColor = 0xFFE3E8F6)
 @Composable
-private fun HostCannotAdvertisePreview() = PreviewHost(HostUiState(status = BleStatus.CannotAdvertise))
+private fun HostCannotAdvertisePreview() =
+    PreviewHost(HostUiState(status = BleStatus.CannotAdvertise))
 
 @Composable
 private fun PreviewHost(uiState: HostUiState) {

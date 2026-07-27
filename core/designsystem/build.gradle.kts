@@ -26,4 +26,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     implementation(project(":domain"))
+    implementation(libs.androidx.lifecycle.runtime.compose)
 }

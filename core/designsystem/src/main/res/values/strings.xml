@@ -2,11 +2,14 @@
 <!--
     Every user-facing string in the app. Colombian Spanish, warm, never bureaucratic.
     This is the only strings file in the project — features read from here.
+
+    Error copy has one shape: cause in the title, fix in the body, action on the button.
+    Never a raw error code, and never a sentence that blames the person reading it.
 -->
 <resources>
     <string name="app_name">BukIn</string>
 
-    <!-- ===== Onboarding ===== -->
+    <!-- ===== Onboarding. Copy is verbatim from session 1 and is not to be rewritten. ===== -->
     <string name="onboarding_one_title">Tu asistencia, en un toque</string>
     <string name="onboarding_one_body">Sin listas, sin fotos, sin códigos que escribir. Llegas, tocas una vez, listo.</string>
 
@@ -37,7 +40,9 @@
     <string name="host_starting">Encendiendo la señal…</string>
     <string name="host_broadcasting">La sala está abierta</string>
     <string name="host_code_label">Código actual</string>
-    <string name="host_instancia_label">Instancia</string>
+    <!-- A format argument, not Kotlin concatenation. The old `label + ": $id"` built a
+         sentence in code, which code-standards.md forbids and no translator could reach. -->
+    <string name="host_instancia_valor">Instancia %1$d</string>
     <string name="host_window_label">Cambia en %1$d s</string>
     <string name="host_keep_open">Puedes bloquear la pantalla: la señal sigue encendida.</string>
 
@@ -64,12 +69,16 @@
     <string name="diag_no">no</string>
 
     <!-- ===== Ticket card ===== -->
-    <string name="ticket_badge">Ticket</string>
-    <string name="ticket_duration_label">Duración:</string>
-    <string name="ticket_checkin_label">Check In</string>
-    <string name="ticket_exit_label">Salida</string>
+    <string name="ticket_subtitulo">%1$s · %2$s</string>
+    <string name="ticket_inicio">Inicio</string>
+    <string name="ticket_fin">Fin</string>
+    <!-- The only fact on the card that appears nowhere else. The stub used to repeat the
+         end time, which the duration had already implied. -->
+    <string name="ticket_entrada_desde">Entrada desde %1$s</string>
+    <string name="ticket_estado_inscrito">Inscrito</string>
+    <string name="ticket_estado_sin_inscripcion">Sin inscripción</string>
+    <string name="ticket_estado_marcada">Asistencia marcada</string>
     <string name="ticket_help">Necesito ayuda</string>
-    <string name="ticket_clock_description">Hora de inicio</string>
 
     <!-- ===== Check-in states ===== -->
     <string name="checkin_scanning">Estamos localizando a tu anfitrión…</string>
@@ -77,6 +86,13 @@
     <string name="checkin_success">Registraste tu asistencia exitosamente.</string>
     <string name="checkin_success_description">Asistencia registrada</string>
     <string name="checkin_proximity_description">Tu teléfono buscando al anfitrión</string>
+
+    <!-- Spoken by TalkBack as the centre changes. A person who cannot see the check mark
+         has no visual workaround for the uncertainty this product exists to remove. -->
+    <string name="checkin_announce_scanning">Buscando a tu anfitrión</string>
+    <string name="checkin_announce_ready">Anfitrión encontrado. Ya puedes marcar tu asistencia.</string>
+    <string name="checkin_announce_enviando">Guardando tu asistencia</string>
+    <string name="checkin_announce_success">Tu asistencia quedó registrada.</string>
 
     <!--
         Offline copy deliberately differs from the mockup. The mockup promised presence
@@ -119,9 +135,7 @@
     <string name="error_save_failed_action">Reintentar</string>
 
     <!-- ===== Footer ===== -->
-    <string name="footer_wordmark_prefix">·buk </string>
-    <string name="footer_wordmark_italic">in</string>
-    <string name="footer_wordmark_suffix">·</string>
+    <string name="footer_wordmark_description">buk in</string>
     <string name="footer_microcopy">Usamos tecnología de proximidad,\nno desactives tu bluetooth.</string>
 
     <!-- ===== Ticket duration, formatted from duracion_minutos ===== -->
@@ -139,19 +153,25 @@
     <string name="nombre_body">Usamos tu nombre para registrar tu asistencia. Nada más.</string>
     <string name="nombre_label">Nombre y apellido</string>
     <string name="nombre_continue">Continuar</string>
+    <string name="nombre_guardando">Guardando…</string>
     <string name="nombre_error">Escribe tu nombre para continuar.</string>
 
     <!-- ===== Session list ===== -->
     <string name="sesiones_title">Tus sesiones</string>
     <string name="sesiones_title_host">Sesiones</string>
+    <string name="sesiones_title_host_sub">Las salas que puedes abrir</string>
+    <string name="sesiones_saludo">Hola, %1$s</string>
+    <string name="sesiones_proximas">Próximas</string>
+    <string name="sesiones_historial">Historial</string>
     <string name="sesiones_empty">Todavía no hay sesiones programadas.</string>
+    <string name="sesiones_empty_historial">Aquí aparecerán las sesiones que ya pasaron.</string>
     <string name="sesiones_retry">Reintentar</string>
     <string name="sesiones_error">No pudimos cargar las sesiones. Revisa tu conexión.</string>
     <string name="sesiones_inscribirme">Inscribirme</string>
     <string name="sesiones_marcar">Marcar asistencia</string>
-    <string name="sesiones_ya_marcaste">Ya marcaste tu asistencia</string>
-    <string name="sesiones_esperando">Se habilita a las %1$s</string>
-    <string name="sesiones_cerrada">Esta sesión ya terminó</string>
+    <string name="sesiones_ya_marcaste">Asistencia marcada</string>
+    <string name="sesiones_esperando">Desde las %1$s</string>
+    <string name="sesiones_cerrada">Terminada</string>
     <string name="sesiones_inscrito">Estás inscrito</string>
     <string name="sesiones_abrir">Abrir la sala</string>
     <string name="sesiones_crear">Crear sesión</string>
@@ -162,6 +182,24 @@
     <string name="sesiones_cancelar">Cancelar</string>
     <string name="sesiones_cambiar_nombre">No soy %1$s</string>
 
+    <!-- ===== Profile menu, reached from the avatar ===== -->
+    <string name="perfil_abrir">Tu perfil</string>
+    <string name="perfil_foto">Cambiar tu foto</string>
+    <string name="perfil_foto_description">Tu foto de perfil</string>
+    <string name="perfil_mi_asistencia">Mi asistencia</string>
+    <string name="perfil_cambiar_nombre">Cambiar mi nombre</string>
+    <string name="perfil_cerrar">Cerrar</string>
+
+    <!-- ===== Mi asistencia: the receipt. Answers "¿sí quedó registrada?" at any time. ===== -->
+    <string name="asistencia_title">Mi asistencia</string>
+    <string name="asistencia_subtitulo">%1$d sesión registrada</string>
+    <string name="asistencia_subtitulo_plural">%1$d sesiones registradas</string>
+    <string name="asistencia_registrada">Registrada</string>
+    <string name="asistencia_walk_in">Sin inscripción previa</string>
+    <string name="asistencia_empty_title">Todavía no tienes asistencias</string>
+    <string name="asistencia_empty_body">Cuando marques tu primera sesión, quedará aquí para que puedas comprobarlo cuando quieras.</string>
+    <string name="asistencia_empty_action">Ver mis sesiones</string>
+
     <!-- ===== Check-in, waiting for the hour ===== -->
     <string name="checkin_esperando_title">Aún no es la hora</string>
     <string name="checkin_esperando_body">Podrás marcar tu asistencia desde las %1$s. Deja el Bluetooth encendido y vuelve entonces.</string>
@@ -169,9 +207,52 @@
     <string name="error_code_rejected_title">Ese código ya no sirve</string>
     <string name="error_code_rejected_body">La señal de tu anfitrión cambia cada 30 segundos. Volvemos a buscar la actual.</string>
     <string name="error_code_rejected_action">Buscar de nuevo</string>
+    <!--
+        Shown after the second rejection in a row. Deliberately stops claiming the problem
+        is a stale code that will fix itself: at this point it is the room's signal not
+        matching what the server has for this sesión, and looking again cannot repair that.
+        Names the two things that actually can.
+    -->
+    <string name="error_code_mismatch_title">La señal de esta sala no coincide</string>
+    <string name="error_code_mismatch_body">Lo intentamos varias veces y el servidor sigue rechazando el código. No es culpa tuya ni de tu teléfono. Pídele a tu anfitrión que cierre y vuelva a abrir la sala, o que te registre a mano.</string>
+    <string name="error_code_mismatch_action">Intentar una vez más</string>
     <string name="error_out_of_window_title">Esta sesión no está abierta</string>
     <string name="error_out_of_window_body">Solo puedes marcar tu asistencia dentro del horario de la sesión.</string>
     <string name="error_out_of_window_action">Volver</string>
+
+    <!--
+        ===== "Necesito ayuda" =====
+        Contextual: what the sheet offers while scanning is not what it offers after a
+        rejected code. Every branch ends at the same last resort, and that last resort is a
+        real path in the app (ManualRegistrationScreen), not a platitude.
+    -->
+    <string name="ayuda_title">Necesito ayuda</string>
+    <string name="ayuda_que_pasa">Qué está pasando</string>
+    <string name="ayuda_que_hacer">Qué puedes hacer</string>
+    <string name="ayuda_ultimo_recurso">Si nada de esto funciona, pídele a tu anfitrión que te registre a mano. Queda igual de válido.</string>
+    <string name="ayuda_cerrar">Entendido</string>
+
+    <string name="ayuda_scanning_pasa">Tu teléfono está buscando la señal de tu anfitrión. Empieza solo, no tienes que tocar nada.</string>
+    <string name="ayuda_scanning_tip_1">Acércate a la sala donde se dicta el curso.</string>
+    <string name="ayuda_scanning_tip_2">Confirma con tu anfitrión que ya abrió la sala.</string>
+    <string name="ayuda_scanning_tip_3">Deja el Bluetooth encendido mientras buscamos.</string>
+
+    <string name="ayuda_esperando_pasa">La sesión todavía no abre, así que aún no hay nada que buscar.</string>
+    <string name="ayuda_esperando_tip_1">Vuelve a las %1$s: la pantalla se habilita sola.</string>
+    <string name="ayuda_esperando_tip_2">Deja el Bluetooth encendido para no perder tiempo al llegar.</string>
+
+    <string name="ayuda_offline_pasa">Ya encontramos a tu anfitrión. Lo único que falta es guardar tu asistencia, y eso sí necesita internet.</string>
+    <string name="ayuda_offline_tip_1">Revisa tus datos móviles o conéctate a un Wi-Fi.</string>
+    <string name="ayuda_offline_tip_2">Cuando vuelva la conexión, toca Reintentar.</string>
+
+    <string name="ayuda_ready_pasa">Encontramos a tu anfitrión y estás en la sala. Solo falta que toques Check In.</string>
+    <string name="ayuda_ready_tip_1">Toca el botón grande. Es lo único que tienes que hacer.</string>
+
+    <string name="ayuda_enviando_pasa">Estamos guardando tu asistencia. Toma un segundo.</string>
+    <string name="ayuda_enviando_tip_1">No cierres la app hasta que aparezca la confirmación.</string>
+
+    <string name="ayuda_success_pasa">Tu asistencia quedó registrada. No tienes que hacer nada más.</string>
+    <string name="ayuda_success_tip_1">Puedes comprobarlo cuando quieras en Mi asistencia.</string>
 
     <!-- ===== Host roster ===== -->
     <string name="roster_title">Quién ha llegado</string>
@@ -190,6 +271,9 @@
     <string name="manual_register">Registrar</string>
     <string name="manual_done">Registrado</string>
     <string name="manual_empty">Nadie coincide con esa búsqueda.</string>
+
+    <!-- ===== Navigation ===== -->
+    <string name="nav_back">Volver</string>
 
     <!-- ===== Diagnostics additions ===== -->
     <string name="diag_clock_offset">Desfase de reloj</string>

@@ -14,10 +14,25 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface BukInKey : NavKey {
 
+    /** Four steps, the last of which asks for a name. First run is one flow. */
     @Serializable data object Onboarding : BukInKey
 
-    /** Typing your name. The whole of identity in v1. Shown once, then remembered. */
+    /**
+     * The standalone change-name screen.
+     *
+     * It survives onboarding absorbing the name question, because the session list offers
+     * "No soy X" and that has to land somewhere. One form, two hosts.
+     */
     @Serializable data object NameEntry : BukInKey
+
+    /**
+     * The receipt: every past session this collaborator attended.
+     *
+     * Presentation over data the app is already fetching — `listar_instancias` has no
+     * `WHERE` clause and returns every instance with an `asistencia` flag. No RPC, no
+     * migration, no new network call.
+     */
+    @Serializable data object MiAsistencia : BukInKey
 
     @Serializable data object RolePicker : BukInKey
 

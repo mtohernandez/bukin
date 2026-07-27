@@ -32,6 +32,7 @@ out/
 # Secrets
 secrets.properties
 *.env
+.env
 .env.local
 
 # Supabase
