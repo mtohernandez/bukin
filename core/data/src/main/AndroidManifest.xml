@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        Declared here rather than in :app, for the same reason every Bluetooth permission is
+        declared in :core:ble: the module that needs a capability is the one that asks for it,
+        and manifest merging carries it up. Nothing else in the app touches the network.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+        Lets NetworkMonitor observe connectivity so an offline screen clears itself when the
+        connection returns. A normal permission: granted at install, never prompted for.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+</manifest>

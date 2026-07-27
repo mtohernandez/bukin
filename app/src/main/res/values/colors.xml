@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The two brand values the *system* needs, as opposed to the app.
+
+    A launcher icon and a splash window are inflated by the framework before any Compose
+    theme exists, so they cannot read `Color.kt`. These are the same values, and they are
+    the only duplication of them anywhere. `Color.kt` remains the only *Kotlin* file with a
+    hex, which is the rule the project actually enforces.
+-->
+<resources>
+    <color name="buk_blue">#2F4DAA</color>
+    <!-- BukField = BukBlue at 10% over BukBackground. Must be fully opaque: the splash
+         screen API rejects a translucent windowSplashScreenBackground. -->
+    <color name="buk_field">#E3E8F6</color>
+</resources>

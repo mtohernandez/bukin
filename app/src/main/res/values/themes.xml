@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The launch theme. `installSplashScreen()` swaps it for Theme.BukIn during
+        onCreate, so this is what the window looks like for the frames before Compose
+        exists — which is exactly why the background is the page field and not white.
+        A white flash into a periwinkle app is the seam this product exists to remove.
+    -->
+    <style name="Theme.BukIn.Splash" parent="Theme.SplashScreen">
+        <!-- Must be fully opaque; the API rejects a translucent value. -->
+        <item name="windowSplashScreenBackground">@color/buk_field</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/avd_splash</item>
+        <item name="windowSplashScreenAnimationDuration">900</item>
+        <item name="postSplashScreenTheme">@style/Theme.BukIn</item>
+    </style>
+
+    <!-- Compose owns every colour after the first frame. This exists only so the window
+         has a theme to be. -->
+    <style name="Theme.BukIn" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

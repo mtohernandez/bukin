@@ -5,13 +5,20 @@ hardware problem surfaces with a session left to react.
 
 ## Objective
 
-Two physical phones in one room. The host's phone broadcasts a rotating code; the
-collaborator's phone detects it, validates the format, and moves from SCANNING to READY
-on its own. No network, no database — the button unlocks, and that is the win.
+**One phone and one Mac in one room.** The Mac beacons a rotating code as co-host; the
+phone detects it, validates the format, and moves from SCANNING to READY on its own. Then
+flip the radios — the phone advertises and the Mac scans — to verify the Android host path.
+No network, no database. The button unlocking is the win.
+
+> **This objective was rewritten.** The original said "two physical phones". There is one
+> phone, no second Android device, and no USB cable. `context/hardware-constraints.md` is
+> the authority on the hardware, on deploying over wireless adb, and on what counts as
+> verified. Read it before anything else in this spec.
 
 ## Read first
 
-`CLAUDE.md` → `context/progress-tracker.md` (what session 1 left) →
+`CLAUDE.md` → **`context/hardware-constraints.md`** (the hardware and the verification
+protocol) → `context/progress-tracker.md` (what session 1 left) →
 `context/architecture.md` (the mechanism and the invariants) →
 `context/code-standards.md` (the Bluetooth section).
 
@@ -21,7 +28,7 @@ on its own. No network, no database — the button unlocks, and that is the win.
 `kotlin-coroutines-structured-concurrency` before wrapping the Bluetooth callbacks —
 `callbackFlow` with a correct `awaitClose` is the crux of this session.
 `compose-side-effects` for starting and stopping scans from the UI. `android-cli` to
-drive both devices.
+drive the phone over wireless adb.
 
 ## Non-negotiable facts
 
@@ -31,8 +38,11 @@ Researched and verified — do not re-derive, do not guess.
 
 Peripheral mode is hardware-gated. `BluetoothAdapter.isMultipleAdvertisementSupported()`
 must return true before a device can host; Bluetooth 4.1-and-lower chipsets are
-central-only. **Check this on both test phones first thing this session** — it decides
-which phone hosts.
+central-only. **Check it on the phone** — but it no longer decides which device hosts,
+because the Mac is the default beacon and CoreBluetooth peripheral mode is already
+verified working. What it decides is whether the *flipped* verification (phone advertises,
+Mac scans) is possible at all. If the phone cannot advertise, the Android host path cannot
+be verified on this hardware: say so plainly and do not claim host mode works.
 
 ### Advertising payload — encoded in the service UUID
 
@@ -189,7 +199,19 @@ features/checkin/
   ...CheckInViewModel.kt                    ← replace session-1 stub with real scanner
 app/
   src/main/kotlin/.../diagnostics/BleDiagnosticsScreen.kt
+tools/mac-ble/
+  beacon.swift      ← the Mac co-host: derives the same rotating code, advertises it,
+                      prints the live code so it can be cross-checked against the phone
+  scan.swift        ← the flipped direction: filters on the 42554B4E prefix, prints
+                      decoded instancia_id, code, and RSSI. The only way to verify the
+                      phone's own advertising with no second Android device.
 ```
+
+The two Swift tools are not optional extras — they are the test harness that replaces the
+missing second phone. `tools/mac-ble/advertise-probe.swift` already exists and is verified
+advertising a BukIn-shaped UUID; `beacon.swift` grows from it. Both must agree byte for
+byte with `:domain`'s `RotatingCode`, and the known-vector test is the shared contract:
+same fixed key, same counter, same expected bytes on both sides.
 
 ## What to build
 
@@ -253,30 +275,52 @@ turns "it doesn't work" into a diagnosis on demo day. Worth every minute it cost
 
 ## Acceptance criteria
 
+**Criterion 0 gates everything else.** Do it first, before writing app code.
+
+0. **The phone can decode a macOS advertisement.** Run the Mac advertiser, scan from the
+   phone, confirm the full `42554B4E-…` UUID appears. Apple hardware sometimes hides
+   128-bit UUIDs in an undocumented overflow area. If the UUID does not appear, **stop and
+   report** — the Mac-as-beacon plan is dead and the plan needs to change before a line of
+   BLE code is written on top of it.
 1. `./gradlew testDebugUnitTest` passes, including the known-vector codec test.
-2. On two physical phones: host starts a session, collaborator moves SCANNING → READY
-   without any manual input.
-3. Host stops the session → collaborator returns to SCANNING within the grace period.
-4. Advertising survives the host's screen locking.
-5. Each preflight failure shows its own actionable Spanish message. Turning Bluetooth
-   off mid-session produces a clear recovery state, not a hang.
-6. The app requests **no location permission** on an Android 12+ device — verify in
-   system settings.
-7. No `ADVERTISE_FAILED_DATA_TOO_LARGE`.
-8. Leaving and returning to the screen does not leak a scan callback.
+2. Mac beacons, phone scans: the phone moves SCANNING → READY with no manual input.
+3. Mac stops beaconing → the phone returns to SCANNING within the grace period.
+4. **Flipped:** the phone advertises as host and `scan.swift` prints the expected
+   `instancia_id` and a code that matches what the phone's host screen displays.
+5. The phone's advertising survives its screen locking — `scan.swift` keeps receiving.
+6. Each preflight failure shows its own actionable Spanish message. Turning Bluetooth off
+   mid-session produces a clear recovery state, not a hang.
+7. The app requests **no location permission** — checked on the phone's own system
+   permission screen, not inferred from the manifest.
+8. No `ADVERTISE_FAILED_DATA_TOO_LARGE`.
+9. Leaving and returning to the screen does not leak a scan callback.
 
 ## Verification
 
 ```bash
 ./gradlew testDebugUnitTest
-./gradlew installDebug   # on BOTH phones
+adb connect <ip>:<port>       # wireless — there is no cable
+./gradlew installDebug        # the one phone
 ```
 
-Then, in one room: phone A hosts, phone B checks in. Confirm each criterion above. Use
-`android-cli` for screenshots of both devices. **This session is not complete until it
-has run on two real phones** — compiling is not evidence.
+Both directions, both required:
 
-Record which phone can host in `progress-tracker.md`.
+```bash
+# Direction 1 — phone as collaborator (the primary flow)
+cd tools/mac-ble && swiftc -O beacon.swift -o beacon && ./beacon
+#   → phone must reach READY on its own
+
+# Direction 2 — phone as host
+cd tools/mac-ble && swiftc -O scan.swift -o scan && ./scan
+#   → start the session on the phone; scan output must show the decoded UUID
+```
+
+Use `android-cli` for screenshots and UI dumps of the phone. **Compiling is not evidence,
+and neither is an emulator.** Paste the actual scan output and the actual test summary
+into the summary — not a paraphrase.
+
+Record in `progress-tracker.md`: whether criterion 0 passed, whether the phone can
+advertise at all, and every criterion that could not be run and why.
 
 ## Out of scope — do not build
 
@@ -286,5 +330,8 @@ collaborator only format-checks.
 
 ## On completion
 
-Update `context/progress-tracker.md` with results, which device hosts, and any BLE
-behavior discovered that sessions 3 must account for.
+Update `context/progress-tracker.md` with results, whether the phone can advertise, any
+BLE behaviour session 3 must account for, and — explicitly — the list of acceptance
+criteria that could not be run on this hardware. An unmet criterion reported honestly is a
+fine outcome. A criterion quietly downgraded to "compiles" is the failure this project
+exists to avoid.

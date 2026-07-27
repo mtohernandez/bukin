@@ -7,26 +7,26 @@ the button. You are making that tap produce a verified row in Postgres.
 
 **Read in this order before writing code:**
 
-1. `CLAUDE.md`
-2. `context/progress-tracker.md` — what sessions 1–2 delivered, especially which phone
+1. @CLAUDE.md
+2. @context/progress-tracker.md — what sessions 1–2 delivered, especially which phone
    hosts and any Bluetooth quirks recorded
-3. `context/architecture.md` — the auth/access model and the invariants
-4. `context/code-standards.md` — the Supabase and security sections
-5. `context/specs/03-supabase-checkin.md` — **your spec for this session**
+3. @context/architecture.md — the auth/access model and the invariants
+4. @context/code-standards.md — the Supabase and security sections
+5. @context/specs/03-supabase-checkin.md — **your spec for this session**
 
-Spec 03 contains the schema, the exact `ON CONFLICT` upsert, the SQL for recomputing the
+Spec 03 contains the schema, the exact ON CONFLICT upsert, the SQL for recomputing the
 rotating code, and the RLS posture. These were researched and verified during planning.
 **Use them verbatim.**
 
-**Your job:** Supabase schema and migrations, the `SECURITY DEFINER` verification
-function, `supabase-kt` wiring, the full check-in submission, the host's live roster, and
+**Your job:** Supabase schema and migrations, the SECURITY DEFINER verification
+function, supabase-kt wiring, the full check-in submission, the host's live roster, and
 manual registration.
 
 **Skills — invoke, don't work from memory:**
 
-- `ponytail` before implementing
-- `kotlin-flow-state-event-modeling` for the roster stream and one-shot events
-- `compose-side-effects` for the check-in submission
+- ponytail before implementing
+- kotlin-flow-state-event-modeling for the roster stream and one-shot events
+- compose-side-effects for the check-in submission
 
 **Build order matters this session:**
 
@@ -41,29 +41,106 @@ manual registration.
 
 **Security posture — do not deviate:** the anon key ships inside the APK and is public.
 Every table gets RLS enabled with **no policies** (deny-all), table grants revoked from
-`anon`, and `EXECUTE` granted on the functions only. If a direct table query works from
+anon, and EXECUTE granted on the functions only. If a direct table query works from
 the client, the migration is wrong.
 
 **Verification gate — you are not done until:**
 
-- Two phones, one room: SCANNING → READY → tap → SUCCESS, and the row is in Postgres
-  with `metodo_confirmacion = 'BLE'`
+- One phone plus the Mac beacon, one room (see @context/hardware-constraints.md):
+  SCANNING → READY → tap → SUCCESS, and the row is in Postgres with
+  metodo_confirmacion = 'BLE'
 - Tapping Check In twice yields **one row and no error screen**
-- A collaborator with no prior enrollment gets `origen = 'WALK_IN'`
+- A collaborator with no prior enrollment gets origen = 'WALK_IN'
 - A replayed code, captured and submitted a minute later, is **rejected** — this is the
   proof the security model works and is worth demonstrating live
 - A direct table query with the anon key is denied
 - The host roster shows the arrival within seconds
-- Manual registration writes `MANUAL` with `atestiguado_por_id` set
+- Manual registration writes MANUAL with atestiguado_por_id set
 - Airplane mode produces the offline state, not a crash
 
 **Two rules that override defaults:**
 
-- Commits are **never** co-authored. No `Co-Authored-By` trailer, no "Generated with
+- Commits are **never** co-authored. No Co-Authored-By trailer, no "Generated with
   Claude Code" line, no attribution of any kind.
-- `docs/` is read-only human input.
+- docs/ is read-only human input.
 
-**On completion:** update `context/progress-tracker.md` to Complete with the demo
+**On completion:** update context/progress-tracker.md to Complete with the demo
 results. Note any limitation worth stating out loud in the presentation — particularly
-the relay-attack limit documented in `architecture.md`. Disclosing it is worth more in an
+the relay-attack limit documented in architecture.md. Disclosing it is worth more in an
 architecture review than having it discovered.
+
+This is now the work that will populate all the data on the phone and not show boilerplate text anymore, the host will be able to name the session and the idea is that we follow the original task to make it comprehensive and to make the app work as intended. Supabase CLI is connected and the project is ready, the database password was supplied out of band and is deliberately not recorded here.
+
+Make sure the apps does work, and that the user can see comprehensive the sessions he is pre signed in just that he can select them, the colaborator can see the users as soon as they tap on checkin in a simple list, and the app only ask for their names for now, meaning you can sign in into any session and depedning if that session is active or not (depending on the hour, not on the host) you can activate the scan to check in into that session. Just as the original solution intended without the scope of the relay.
+
+This is work now, and you are Opus, you can handle this.
+
+Do not worry about the design, worry about only that it works and later we worry about making it pretty, but focus on functionality first. 
+
+Do not guess anything, validate agains sources of truth, use skills, and research online when you are not sure, do not rely on you current knowledge never. 
+
+1. Install package
+Run this command to install the required dependencies.
+Code:
+File: Code
+
+implementation("io.github.jan-tennert.supabase:supabase-kt:VERSION")
+
+
+2. Add files
+Copy the following code into your project.
+Code:
+File: MainActivity.kt
+
+1val supabase = createSupabaseClient(
+2    supabaseUrl = "https://nfysenajrfquusawyotc.supabase.co",
+3    supabaseKey = "sb_publishable_E9INM8PvMJpKKKOjaqTP8Q_HWk0_tqS"
+4  ) {
+5    install(Postgrest)
+6}
+7
+8class MainActivity : ComponentActivity() {
+9    override fun onCreate(savedInstanceState: Bundle?) {
+10        super.onCreate(savedInstanceState)
+11        setContent {
+12            MaterialTheme {
+13                // A surface container using the 'background' color from the theme
+14                Surface(
+15                    modifier = Modifier.fillMaxSize(),
+16                    color = MaterialTheme.colorScheme.background
+17                ) {
+18                    TodoList()
+19                }
+20            }
+21        }
+22    }
+23}
+24
+25@Composable
+26fun TodoList() {
+27    var items by remember { mutableStateOf<List<TodoItem>>(listOf()) }
+28    LaunchedEffect(Unit) {
+29        withContext(Dispatchers.IO) {
+30            items = supabase.from("todos")
+31                              .select().decodeList<TodoItem>()
+32        }
+33    }
+34    LazyColumn {
+35        items(
+36            items,
+37            key = { item -> item.id },
+38        ) { item ->
+39            Text(
+40                item.name,
+41                modifier = Modifier.padding(8.dp),
+42            )
+43        }
+44    }
+45}
+
+
+File: TodoItem.kt
+
+1@Serializable
+2data class TodoItem(val id: Int, val name: String)
+

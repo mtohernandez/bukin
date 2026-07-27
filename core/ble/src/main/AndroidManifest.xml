@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Every Bluetooth permission in the app is declared here and merges up into :app. This is
+    the only module that touches the radio, so it is the only module that should ask for it.
+
+    Note what is absent: no unconditional ACCESS_FINE_LOCATION. On Android 12+ the
+    `neverForLocation` flag on BLUETOOTH_SCAN means this app needs no location grant at all,
+    which is a direct answer to the loudest complaint about the app this one replaces —
+    location errors indoors. The capped legacy declaration below exists only because
+    minSdk is 26 and pre-31 Android had no other way to scan.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+                     android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+
+    <application>
+        <!--
+            The typed declaration is not optional: without foregroundServiceType the service
+            is killed on Android 14+, which would take the host's broadcast down with it the
+            moment the screen locked.
+        -->
+        <service
+            android:name=".HostAdvertisingService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+    </application>
+
+</manifest>
