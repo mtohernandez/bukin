@@ -225,17 +225,6 @@ Lo que quedó fuera a propósito, con la razón:
 Cada una de esas cuatro sigue en pie en el documento de diseño. Construirlas encima de lo que
 ya está es agregar piezas a algo que funciona.
 
-## Dos límites que conviene decir en voz alta
-
-**Reenvío en tiempo real.** Alguien puede retransmitir la señal por internet a un cómplice
-que está lejos. Ningún esquema de proximidad por Bluetooth resuelve eso. La rotación cada 30
-segundos elimina las fotos del código, los reenvíos por chat y la repetición de un código
-viejo, que es el fraude que ocurre en la práctica. La lista de llegadas del anfitrión queda
-como verificación humana.
-
-**Identidad.** Bluetooth prueba que un teléfono estuvo en la sala. La autenticación prueba de
-quién es. Por eso la primera pieza de la tabla de arriba es la que entra primero.
-
 ## Hardware con el que se probó
 
 Un teléfono Samsung Galaxy A54 con Android 16, conectado por adb inalámbrico, y un Mac que
