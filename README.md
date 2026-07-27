@@ -194,25 +194,51 @@ Las pruebas del códec incluyen un vector conocido. Con la llave
 `67e94bf8a08959ea`. Kotlin, Swift y SQL calculan ese mismo valor. Ese vector es la prueba de
 que las tres implementaciones hablan el mismo idioma.
 
-## Lo que este demo hace y lo que deja pendiente
+## Alcance de esta versión
 
-Registra la entrada. La salida la maneja el anfitrión.
+El diseño completo está en [`docs/overview.md`](docs/overview.md): requisitos, API, modelo de
+datos, arquitectura C4, alternativas evaluadas y riesgos.
 
-Hay dos límites que conviene decir en voz alta.
+Este repositorio implementa la porción que se puede construir y demostrar en un día, elegida
+para probar lo único que no se puede asumir: que la presencia física en la sala se verifica
+sola y que la asistencia queda guardada con un toque.
+
+Lo que está funcionando:
+
+| requisito | cómo queda resuelto aquí |
+| --- | --- |
+| R1 confirmar con una acción | un toque, sin que el anfitrión escriba nada |
+| R2 asistencia sin inscripción previa | la rama INSERT del upsert marca `origen = WALK_IN` |
+| R3 verificar presencia física | código BLE rotativo, validado en Postgres |
+| R4 un solo registro | `ON CONFLICT (colaborador_id, instancia_id)`, sin pantalla de error |
+| R6 concurrencia | cada confirmación toca una fila distinta, sin contador compartido |
+
+Lo que quedó fuera a propósito, con la razón:
+
+| pieza | por qué se dejó fuera |
+| --- | --- |
+| Autenticación JWT | el diseño la contempla y el límite de la RPC ya está preparado. Cambiar el `colaborador_id` que hoy manda el cliente por uno que salga del token es un argumento de diferencia por función |
+| Outbox y worker | propaga hacia el sistema externo de cursos. En este demo no hay sistema externo al cual propagar, así que la tabla y el worker quedan en el documento de arquitectura |
+| Relevo por anfitrión vía BLE | resuelve el caso sin conexión. Es la pieza de mayor riesgo técnico y menor valor para mostrar en vivo, así que la pantalla de sin conexión dice la verdad en vez de simular una cola que no existe |
+| Marca de salida | la gente olvida marcarla. Resolverlo bien pide una decisión de producto que este demo no toma |
+
+Cada una de esas cuatro sigue en pie en el documento de diseño. Construirlas encima de lo que
+ya está es agregar piezas a algo que funciona.
+
+## Dos límites que conviene decir en voz alta
 
 **Reenvío en tiempo real.** Alguien puede retransmitir la señal por internet a un cómplice
-que está lejos. Ningún esquema de proximidad por Bluetooth resuelve eso. La rotación del
-código sí elimina las fotos, los reenvíos por chat y la repetición de un código viejo. La
-lista de llegadas del anfitrión queda como verificación humana.
+que está lejos. Ningún esquema de proximidad por Bluetooth resuelve eso. La rotación cada 30
+segundos elimina las fotos del código, los reenvíos por chat y la repetición de un código
+viejo, que es el fraude que ocurre en la práctica. La lista de llegadas del anfitrión queda
+como verificación humana.
 
-**Identidad.** Bluetooth prueba que un teléfono estuvo en la sala. No prueba de quién es.
-En esta versión la persona escribe su nombre. Con autenticación esto se cierra, y el diseño
-ya está preparado: el `colaborador_id` que hoy manda el cliente pasa a salir del token, que
-es un argumento de diferencia en cada función.
+**Identidad.** Bluetooth prueba que un teléfono estuvo en la sala. La autenticación prueba de
+quién es. Por eso la primera pieza de la tabla de arriba es la que entra primero.
 
 ## Hardware con el que se probó
 
 Un teléfono Samsung Galaxy A54 con Android 16, conectado por adb inalámbrico, y un Mac que
-hace de segunda radio Bluetooth. El Mac emite la misma señal que emitiría un anfitrión
-Android, porque el diseño permite que cualquier equipo con la llave transmita el mismo
-código. Las herramientas del Mac están en `tools/mac-ble/`.
+hace de segunda radio Bluetooth. El diseño permite que cualquier equipo con la llave transmita
+el mismo código, así que el Mac funciona como un anfitrión más. Las herramientas están en
+`tools/mac-ble/`.
